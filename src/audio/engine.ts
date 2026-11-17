@@ -83,6 +83,8 @@ export class MixEngine implements MixSource {
   private listeners = new Set<() => void>();
   private loadToken = 0;
   version = 0;
+  /** Called when a song plays to its end (the player's auto-next and repeat). */
+  onEnded: (() => void) | null = null;
 
   subscribe = (fn: () => void) => { this.listeners.add(fn); return () => { this.listeners.delete(fn); }; };
   getVersion = () => this.version;
@@ -278,6 +280,7 @@ export class MixEngine implements MixSource {
       this.stop();
       this.offset = this.duration;
       this.emit();
+      this.onEnded?.();
       return;
     }
     const to = now + LOOKAHEAD;

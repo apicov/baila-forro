@@ -4,6 +4,7 @@ import { HashRouter, Route, Routes } from 'react-router-dom';
 import { createAppTheme, THEMES } from './theme/theme';
 import { LibraryPage } from './pages/LibraryPage';
 import { SongPage } from './pages/SongPage';
+import { PlaylistPage } from './pages/PlaylistPage';
 
 export default function App() {
   const name = useMediaQuery('(prefers-color-scheme: dark)') ? 'dark' : 'paper';
@@ -20,6 +21,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<LibraryPage />} />
           <Route path="/song/:id" element={<SongPage />} />
+          <Route path="/playlist/:id" element={<PlaylistPage />} />
         </Routes>
       </HashRouter>
     </ThemeProvider>

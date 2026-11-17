@@ -22,3 +22,6 @@ export function usePlaybackTime(everyMs = 100): number {
   }, [e, e.playing, e.version, everyMs]);
   return time;
 }
+
+/** 83.4 → "1:23". */
+export const clock = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;

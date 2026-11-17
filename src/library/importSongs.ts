@@ -4,11 +4,11 @@
 import { db, STEMS, type Stem, type SongRow } from './db';
 import type { BeatsFile } from '@/beats/model';
 
-export interface PickedSong {
+export interface PickedSong<T extends { name: string } = File> {
   id: string;
   title: string;
-  stems: Partial<Record<Stem, File>>;
-  beats?: File;
+  stems: Partial<Record<Stem, T>>;
+  beats?: T;
 }
 
 const STEM_FILE = new RegExp(`^(.*)_(${STEMS.join('|')})\\.mp3$`, 'i');
@@ -25,8 +25,8 @@ export function songTitle(base: string): string {
 /** Groups the files by song. The full mix and `_clicks.mp3` are left out: the stems add up to the mix, and the
  *  clicks are made live from the beats file. Names are NFC-normalized: the files come with decomposed
  *  accents (o + ´), the same song must group the same however they were written. */
-export function groupFiles(files: File[]): PickedSong[] {
-  const songs = new Map<string, PickedSong>();
+export function groupFiles<T extends { name: string }>(files: T[]): PickedSong<T>[] {
+  const songs = new Map<string, PickedSong<T>>();
   const song = (base: string) => {
     let s = songs.get(base);
     if (!s) songs.set(base, (s = { id: base, title: songTitle(base), stems: {} }));
@@ -57,6 +57,7 @@ export async function importSongs(files: File[]): Promise<PickedSong[]> {
         beatsOriginal: beatsOriginal ?? old?.beatsOriginal ?? null,
         beatsEdited: old?.beatsEdited ?? null,
         updatedAt: Date.now(),
+        files: old?.files, // a song also in an opened folder: its other stems still come from there
       };
       await db.songs.put(row);
       for (const [name, file] of Object.entries(p.stems)) {

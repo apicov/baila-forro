@@ -7,7 +7,8 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        registerPlugin(CacheFilePlugin.class); // the app's own plugin, before the bridge starts
+        registerPlugin(CacheFilePlugin.class); // the app's own plugins, before the bridge starts
+        registerPlugin(FolderPickerPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

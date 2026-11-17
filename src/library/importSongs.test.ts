@@ -46,6 +46,6 @@ describe('importSongs', () => {
     expect(song?.stems).toEqual(['bass', 'drums']);
     expect(song?.beatsOriginal?.steps).toEqual([1]);
     expect(song?.beatsEdited).toEqual([{ t: 2, role: 1 }]);
-    expect((await loadStems(id)).map((s) => s.name).sort()).toEqual(['bass', 'drums']);
+    expect((await loadStems((await db.songs.get(id))!)).map((s) => s.name).sort()).toEqual(['bass', 'drums']);
   });
 });

@@ -182,10 +182,14 @@ export class MixEngine implements MixSource {
     this.emit();
   }
 
-  /** A stem decoded at its own rate (no resampling by the browser) and brought to the context's rate. */
+  /** A stem decoded at its own rate (no resampling by the browser) and brought to the context's rate. A FLAC
+   *  stem (scripts/make_flac.sh) is mono at the context's rate already: decoded at that rate, nothing to do. */
   private async decode(ctx: AudioContext, blob: Blob): Promise<AudioBuffer> {
-    this.decoder ??= new OfflineAudioContext(1, 1, DECODE_RATE);
-    const raw = await this.decoder.decodeAudioData(await blob.arrayBuffer());
+    const bytes = await blob.arrayBuffer();
+    const flac = new TextDecoder().decode(bytes.slice(0, 4)) === 'fLaC';
+    const rate = flac ? ctx.sampleRate : DECODE_RATE;
+    if (this.decoder?.sampleRate !== rate) this.decoder = new OfflineAudioContext(1, 1, rate);
+    const raw = await this.decoder.decodeAudioData(bytes);
     if (raw.sampleRate === ctx.sampleRate) return raw;
     const out = ctx.createBuffer(raw.numberOfChannels, Math.round(raw.duration * ctx.sampleRate), ctx.sampleRate);
     for (let c = 0; c < raw.numberOfChannels; c++) resampleLinear(raw.getChannelData(c), out.getChannelData(c));

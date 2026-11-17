@@ -8,6 +8,7 @@ footwork clicks made live from `<song>_beats.json`, and a beat editor to fix the
 - `npm test`, `npm run lint`, `npm run typecheck`.
 - `./rebuild.sh`: build the Android APK and install it on the phone over USB (`--no-install` to only build).
 - `python3 scripts/make_icons.py`: redraw the icons and splash.
+- `scripts/make_flac.sh <folder>`: the stems as FLAC, for faster opening (see Songs).
 
 ## Songs
 Add → **Open folder as playlist**: pick a song folder, or a folder of song folders (one level down, not
@@ -20,6 +21,13 @@ Add → **Import files** copies a song into the app: select every file of one so
 the six stems (`_vocals _guitar _piano _bass _drums _other.mp3`) and `_beats.json`; it skips the full mix and
 `_clicks.mp3`, because the stems add up to the mix and the clicks are made from the beats file. Files of a
 song can come in several imports; they are merged, and beat edits are kept.
+
+**Faster opening**: `scripts/make_flac.sh <folder>` (a song folder, or a folder of song folders; needs
+ffmpeg) writes each song's stems as the app plays them, mono 32 kHz FLAC, into a `flac/` folder inside the
+song folder; the mp3s stay as they are. A song with them opens about 2.5× faster and takes half the memory
+(they stay in sync with the beats: same samples, to within one at 32 kHz). The app uses a stem's `.flac` over
+its `.mp3` when both are there, so open the folder again (or Re-scan) after running it. Stems already made are
+skipped.
 
 ## Playing
 Tap a song to open it and play it; the list it was tapped in (as shown, search applied) is what comes next.

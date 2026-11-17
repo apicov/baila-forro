@@ -18,7 +18,8 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 /**
  * A folder of songs through Android's folder picker: one permission for the whole folder (kept across restarts,
  * so its songs play from where they are, nothing copied). Its files are listed, and those of its subfolders one
- * level down: a song folder, or a folder of song folders. Not deeper (a project folder's node_modules…).
+ * level down: a song folder, or a folder of song folders. Not deeper (a project folder's node_modules…), but for
+ * the song folders' flac/ folders (scripts/make_flac.sh).
  */
 @CapacitorPlugin(name = "FolderPicker")
 public class FolderPickerPlugin extends Plugin {
@@ -59,7 +60,9 @@ public class FolderPickerPlugin extends Plugin {
     private void list(PluginCall call, Uri tree) {
         JSArray files = new JSArray();
         try {
-            for (String dir : addFiles(tree, DocumentsContract.getTreeDocumentId(tree), files)) addFiles(tree, dir, files);
+            for (String[] dir : addFiles(tree, DocumentsContract.getTreeDocumentId(tree), files)) {
+                for (String[] sub : addFiles(tree, dir[0], files)) if (sub[1].equals("flac")) addFiles(tree, sub[0], files);
+            }
         } catch (SecurityException | IllegalArgumentException e) {
             call.reject("Can't read the folder: " + e.getMessage());
             return;
@@ -70,15 +73,15 @@ public class FolderPickerPlugin extends Plugin {
         call.resolve(out);
     }
 
-    /** Adds a folder's files to `files` and returns its subfolders' document ids. */
-    private java.util.List<String> addFiles(Uri tree, String folderId, JSArray files) {
+    /** Adds a folder's files to `files` and returns its subfolders: { document id, name }. */
+    private java.util.List<String[]> addFiles(Uri tree, String folderId, JSArray files) {
         Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, folderId);
         String[] columns = { Document.COLUMN_DOCUMENT_ID, Document.COLUMN_DISPLAY_NAME, Document.COLUMN_MIME_TYPE };
-        java.util.List<String> dirs = new java.util.ArrayList<>();
+        java.util.List<String[]> dirs = new java.util.ArrayList<>();
         try (Cursor c = getContext().getContentResolver().query(children, columns, null, null, null)) {
             while (c != null && c.moveToNext()) {
                 if (Document.MIME_TYPE_DIR.equals(c.getString(2))) {
-                    dirs.add(c.getString(0));
+                    dirs.add(new String[] { c.getString(0), c.getString(1) });
                     continue;
                 }
                 JSObject f = new JSObject();

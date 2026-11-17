@@ -42,4 +42,11 @@ describe('groupFiles', () => {
     expect(songs[0].stems.bass?.uri).toBe('u1');
     expect(songs[0].beats?.uri).toBe('u2');
   });
+  it('takes a stem\'s .flac over its .mp3, whichever comes first', () => {
+    const a = groupFiles([{ name: 'S_bass.mp3', uri: 'm' }, { name: 'S_bass.flac', uri: 'f' }, { name: 'S_drums.mp3', uri: 'd' }]);
+    const b = groupFiles([{ name: 'S_bass.flac', uri: 'f' }, { name: 'S_bass.mp3', uri: 'm' }]);
+    expect(a[0].stems.bass?.uri).toBe('f');
+    expect(a[0].stems.drums?.uri).toBe('d');
+    expect(b[0].stems.bass?.uri).toBe('f');
+  });
 });

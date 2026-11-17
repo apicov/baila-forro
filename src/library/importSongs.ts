@@ -1,6 +1,7 @@
 /** Songs from picked files: `<song>_<stem>.mp3` and `<song>_beats.json`, as the separation script writes
- *  them. The Android file picker can't pick a folder, so the user selects every file of a song folder; files
- *  of several songs can come in one go, and a song can come in several goes (they are merged). */
+ *  them, and `<song>_<stem>.flac` as scripts/make_flac.sh writes them (in the song folder's `flac/`).
+ *  The Android file picker can't pick a folder, so the user selects every file of a song folder; files of
+ *  several songs can come in one go, and a song can come in several goes (they are merged). */
 import { db, STEMS, type Stem, type SongRow } from './db';
 import type { BeatsFile } from '@/beats/model';
 
@@ -11,7 +12,7 @@ export interface PickedSong<T extends { name: string } = File> {
   beats?: T;
 }
 
-const STEM_FILE = new RegExp(`^(.*)_(${STEMS.join('|')})\\.mp3$`, 'i');
+const STEM_FILE = new RegExp(`^(.*)_(${STEMS.join('|')})\\.(mp3|flac)$`, 'i');
 const BEATS_FILE = /^(.*)_beats\.json$/i;
 
 /** "Alcalyno - Lilith (Forró Stream) [L182VmVf9ao]" → "Alcalyno - Lilith" (also a "-<id>" ending). */
@@ -36,7 +37,11 @@ export function groupFiles<T extends { name: string }>(files: T[]): PickedSong<T
     const name = file.name.normalize('NFC');
     const stem = STEM_FILE.exec(name);
     const beats = BEATS_FILE.exec(name);
-    if (stem) song(stem[1]).stems[stem[2].toLowerCase() as Stem] = file;
+    if (stem) {
+      // a stem's .flac wins over its .mp3: already mono at the app's rate, it decodes ~3× faster
+      const stems = song(stem[1]).stems, name = stem[2].toLowerCase() as Stem;
+      if (stem[3].toLowerCase() === 'flac' || !/\.flac$/i.test(stems[name]?.name ?? '')) stems[name] = file;
+    }
     else if (beats) song(beats[1]).beats = file;
   }
   return [...songs.values()];

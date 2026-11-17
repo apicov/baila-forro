@@ -21,8 +21,9 @@ const FREQ_LABELS: [number, string][] = [[100, '100'], [1000, '1k'], [5000, '5k'
 
 const BAND = 34; // the handles' band at the top
 const AXIS = 16; // the seconds along the bottom
-const STACKED_H = 140; // the waveform area's height
-const LANE_H = 30;
+// the same height in every view and with the steps on or off (they only share it out differently), so the page
+// doesn't jump on a switch: 180 px of picture under the steps, a lane of 30 px for each of the six stems
+const HEIGHT = BAND + 180 + AXIS;
 const HANDLE_R = 10;
 const HIT_PX = 18;
 const TAP_PX = 6; // a pointer that moves less than this is a tap
@@ -50,11 +51,6 @@ function maxIn(peaks: Float32Array, k0: number, k1: number): number {
   return v;
 }
 
-function timelineHeight(view: WaveView, showSteps: boolean): number {
-  const stems = STEMS.filter((s) => engine.peaks[s]).length || 1;
-  return (showSteps ? BAND : 4) + (view === 'lanes' ? stems * LANE_H : STACKED_H) + AXIS;
-}
-
 /** The stems' picture, drawn once per column (a device pixel at a fixed song time) into a ring of columns,
  *  then slid along: shapes stay put as they scroll instead of being re-sampled at each frame's offset. */
 interface Ring {
@@ -74,7 +70,6 @@ export function Timeline(props: TimelineProps) {
   const ring = useRef<Ring | null>(null);
   const shown = useRef(0); // the song time at the playhead as last drawn
   live.current = { props, theme };
-  const height = timelineHeight(props.view, props.showSteps);
 
   useEffect(() => {
     const el = canvas.current!;
@@ -282,7 +277,7 @@ export function Timeline(props: TimelineProps) {
   };
 
   return (
-    <canvas ref={canvas} style={{ width: '100%', height, display: 'block', touchAction: 'none', cursor: 'pointer' }}
+    <canvas ref={canvas} style={{ width: '100%', height: HEIGHT, display: 'block', touchAction: 'none', cursor: 'pointer' }}
       onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
       onPointerCancel={() => { gesture.current = null; }} />
   );

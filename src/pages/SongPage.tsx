@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Alert, Box, LinearProgress, Tab, Tabs, Typography } from '@mui/material';
+import { Alert, Box, FormControlLabel, LinearProgress, Stack, Switch, Tab, Tabs, Typography } from '@mui/material';
 import { useParams } from 'react-router-dom';
 import { AppShell } from '@/components/AppShell';
 import { Mixer } from '@/components/Mixer';
 import { Transport } from '@/components/Transport';
 import { BeatEditor } from '@/components/BeatEditor';
+import { Timeline, type WaveView, WaveViewToggle } from '@/components/Timeline';
 import { useEngine } from '@/audio/useEngine';
 import { db, loadStems, STEMS, type SongRow } from '@/library/db';
 import { songBeats, useBeatEdits } from '@/beats/useBeatEdits';
@@ -23,6 +24,8 @@ function Song({ song }: { song: SongRow }) {
   const e = useEngine();
   const edits = useBeatEdits(song);
   const [tab, setTab] = useState<'mix' | 'beats'>('mix');
+  const [view, setView] = useState<WaveView>('stacked'); // shared by both tabs
+  const [showSteps, setShowSteps] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // decode the stems, unless this song is the one already open (and maybe playing)
@@ -55,8 +58,18 @@ function Song({ song }: { song: SongRow }) {
             <Tab value="mix" label="Mix" />
             <Tab value="beats" label="Beats" disabled={!song.beatsOriginal && !song.beatsEdited} />
           </Tabs>
-          {tab === 'mix' && <Mixer hasBeats={edits.beats.length > 0} />}
-          {tab === 'beats' && <BeatEditor song={song} edits={edits} />}
+          {tab === 'mix' && (
+            <Stack spacing={1.5}>
+              <Timeline beats={edits.beats} view={view} showSteps={showSteps && edits.beats.length > 0} editable={false} windowSec={6} />
+              <Stack direction="row" sx={{ alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                <WaveViewToggle view={view} onChange={setView} />
+                <FormControlLabel label="Steps" disabled={edits.beats.length === 0}
+                  control={<Switch checked={showSteps} onChange={(_, v) => setShowSteps(v)} />} />
+              </Stack>
+              <Mixer hasBeats={edits.beats.length > 0} />
+            </Stack>
+          )}
+          {tab === 'beats' && <BeatEditor song={song} edits={edits} view={view} onView={setView} />}
         </>
       )}
     </AppShell>

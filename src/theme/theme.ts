@@ -2,6 +2,7 @@
  *  phone's light/dark setting, plus the colours of the step roles. */
 import { createTheme, type Theme } from '@mui/material';
 import type { Role } from '@/beats/model';
+import type { Stem } from '@/library/db';
 
 export type ThemeName = 'paper' | 'dark';
 
@@ -16,6 +17,12 @@ export const THEMES = {
 export const ROLE_COLORS: Record<ThemeName, Record<Role, string>> = {
   paper: { 1: '#3d5a80', 2: '#3f7a3a', 3: '#c0582b', 0: '#a39e94' },
   dark: { 1: '#8fb3d9', 2: '#9ccc8a', 3: '#e8915f', 0: '#6a665f' },
+};
+
+/** The stems on the timeline and in the mixer; apart from the step roles' blue, green and orange. */
+export const STEM_COLORS: Record<ThemeName, Record<Stem, string>> = {
+  paper: { vocals: '#8e44ad', guitar: '#16a085', piano: '#d4a017', bass: '#c0392b', drums: '#2c6fbb', other: '#7f8c8d' },
+  dark: { vocals: '#c39bd3', guitar: '#48c9b0', piano: '#f4d03f', bass: '#ec7063', drums: '#5dade2', other: '#aab7b8' },
 };
 
 export const HEADING_FONT = '"Literata", "Noto Serif", Georgia, serif';

@@ -6,6 +6,7 @@
 import type { Beat } from '@/beats/model';
 import { STEMS, type Stem, type StemRow } from '@/library/db';
 import { clicksInWindow, playClick } from './clicks';
+import type { MixSource } from './spectrum';
 
 export type Track = Stem | 'clicks';
 export const TRACKS: Track[] = [...STEMS, 'clicks'];
@@ -44,10 +45,26 @@ export function computePeaks(data: Float32Array, sampleRate: number, perSecond =
   return peaks;
 }
 
-export class MixEngine {
+/** The scales the timeline draws the stems at: each stem's loudest slice (lanes), and the loudest moment of all
+ *  of them added up (stacked: the full shape never overflows). */
+export function peakMaxima(peaks: Partial<Record<Stem, Float32Array>>): { each: Partial<Record<Stem, number>>; sum: number } {
+  const each: Partial<Record<Stem, number>> = {};
+  const arrays = Object.entries(peaks) as [Stem, Float32Array][];
+  const total = new Float32Array(Math.max(0, ...arrays.map(([, a]) => a.length)));
+  for (const [stem, a] of arrays) {
+    let m = 0;
+    for (let k = 0; k < a.length; k++) { if (a[k] > m) m = a[k]; total[k] += a[k]; }
+    each[stem] = m;
+  }
+  return { each, sum: total.reduce((m, v) => Math.max(m, v), 0) };
+}
+
+export class MixEngine implements MixSource {
   songId: string | null = null;
   duration = 0;
-  peaks: Float32Array | null = null;
+  /** Each stem's waveform envelope (computePeaks), and the scales to draw them at (peakMaxima). */
+  peaks: Partial<Record<Stem, Float32Array>> = {};
+  peakMax: ReturnType<typeof peakMaxima> = { each: {}, sum: 0 };
   loading: { done: number; total: number } | null = null;
   playing = false;
   beats: Beat[] = [];
@@ -91,12 +108,48 @@ export class MixEngine {
     return Math.min(this.duration, Math.max(this.offset, this.offset + this.ctx.currentTime - this.startedAt - latency));
   }
 
+  /** `time` for drawing. The audio clock moves in steps of a whole output buffer (32 ms here, 0 or 2 px a
+   *  frame on the timeline), so this one runs on the frame clock (`now`, ms) and is pulled gently toward `time`. */
+  smoothTime(now: number): number {
+    const t = this.time;
+    if (!this.playing || t <= this.offset || Math.abs(t - this.shown) > 0.2) this.shown = t; // paused, starting, a jump
+    else {
+      this.shown += Math.max(0, now - this.shownAt) / 1000;
+      this.shown += (t - this.shown) * 0.1;
+    }
+    this.shownAt = now;
+    return this.shown;
+  }
+  private shown = 0;
+  private shownAt = 0;
+
   /** The song time the sources have reached (what the clicks are scheduled against). */
   private get sourceTime(): number {
     return this.playing && this.ctx ? this.offset + this.ctx.currentTime - this.startedAt : this.offset;
   }
 
   has(stem: Stem) { return this.buffers.has(stem); }
+
+  // what the spectrogram analyses: the stems that are on, mixed at their volumes (MixSource)
+  get sampleRate(): number { return this.buffers.values().next().value?.sampleRate ?? SAMPLE_RATE; }
+  get length(): number { return Math.max(0, ...[...this.buffers.values()].map((b) => b.length)); }
+  // copyFromChannel, not getChannelData: once a buffer has played, Chrome copies the whole stem on every
+  // getChannelData call (~37 MB), which made each spectrogram column take a whole animation frame
+  private window = new Float32Array(0);
+  mix = (start: number, out: Float32Array) => {
+    out.fill(0);
+    if (this.window.length !== out.length) this.window = new Float32Array(out.length);
+    const from = Math.max(0, -start);
+    for (const [stem, buffer] of this.buffers) {
+      const { on, volume } = this.tracks[stem];
+      const n = Math.min(out.length - from, buffer.length - (start + from));
+      if (!on || volume === 0 || n <= 0) continue;
+      const part = this.window.subarray(0, n);
+      buffer.copyFromChannel(part, 0, start + from);
+      for (let i = 0; i < n; i++) out[from + i] += part[i] * volume;
+    }
+  };
+  key = () => `${this.songId}|${STEMS.map((s) => (this.tracks[s].on ? this.tracks[s].volume.toFixed(2) : '-')).join(',')}`;
 
   /** Opens a song: its id is set at once (a second call for the same song can tell), the stems decoded after. */
   async load(songId: string, rows: Promise<StemRow[]>, beats: Beat[]): Promise<void> {
@@ -115,17 +168,14 @@ export class MixEngine {
         const buffer = await this.decode(ctx, row.blob);
         if (token !== this.loadToken) return; // another song was opened meanwhile
         this.buffers.set(row.name, buffer);
+        this.peaks = { ...this.peaks, [row.name]: computePeaks(buffer.getChannelData(0), buffer.sampleRate) };
         this.duration = Math.max(this.duration, buffer.duration);
         this.loading = { done: (this.loading?.done ?? 0) + 1, total: ordered.length };
         this.emit();
       }));
       if (token !== this.loadToken) return;
     }
-    const wave = this.buffers.get('drums') ?? this.buffers.values().next().value;
-    this.peaks = wave ? computePeaks(wave.getChannelData(0), wave.sampleRate) : null;
-    // drawn full height however loud the stem is
-    const max = this.peaks?.reduce((m, v) => Math.max(m, v), 0) ?? 0;
-    if (this.peaks && max > 0) this.peaks = this.peaks.map((v) => v / max);
+    this.peakMax = peakMaxima(this.peaks);
     this.loading = null;
     this.emit();
   }
@@ -147,7 +197,8 @@ export class MixEngine {
     this.songId = null;
     this.duration = 0;
     this.offset = 0;
-    this.peaks = null;
+    this.peaks = {};
+    this.peakMax = { each: {}, sum: 0 };
     this.loading = null;
     this.beats = [];
     this.emit();

@@ -19,7 +19,7 @@ import type { SongRow } from '@/library/db';
 import { exportBeats } from '@/services/exportBeats';
 import { ROLE_COLORS } from '@/theme/theme';
 import { useTheme } from '@mui/material';
-import { Timeline } from './Timeline';
+import { Timeline, type WaveView, WaveViewToggle } from './Timeline';
 
 const WINDOWS = [3, 6, 12, 24]; // seconds on screen
 const STEPS_MS = [5, 10, 50];
@@ -27,7 +27,9 @@ const ROLE_NAME: Record<Role, string> = { 1: 'one', 2: 'two', 3: 'three', 0: 'pa
 
 type Edits = ReturnType<typeof useBeatEdits>;
 
-export function BeatEditor({ song, edits }: { song: SongRow; edits: Edits }) {
+export function BeatEditor({ song, edits, view, onView }: {
+  song: SongRow; edits: Edits; view: WaveView; onView: (v: WaveView) => void;
+}) {
   const { beats, apply, undo, canUndo, revert, edited } = edits;
   const theme = useTheme();
   const roleColors = ROLE_COLORS[theme.palette.mode === 'dark' ? 'dark' : 'paper'];
@@ -94,7 +96,8 @@ export function BeatEditor({ song, edits }: { song: SongRow; edits: Edits }) {
         </Typography>
       </Stack>
 
-      <Timeline beats={beats} selected={sel} range={fullRange ?? (range ? { a: range.a, b: range.a } : null)} windowSec={windowSec}
+      <Timeline beats={beats} view={view} showSteps editable selected={sel}
+        range={fullRange ?? (range ? { a: range.a, b: range.a } : null)} windowSec={windowSec}
         onTap={onTap}
         onDragStart={(i) => { setSelected(i); onDrag(i, beats[i].t, true); }}
         onDrag={(i, t) => onDrag(i, t, false)} />
@@ -164,6 +167,7 @@ export function BeatEditor({ song, edits }: { song: SongRow; edits: Edits }) {
         <IconButton aria-label="Zoom out" disabled={windowSec === WINDOWS[WINDOWS.length - 1]}
           onClick={() => setWindowSec(WINDOWS[WINDOWS.indexOf(windowSec) + 1])}><ZoomOutIcon /></IconButton>
         <Typography variant="caption" color="text.secondary">{windowSec} s</Typography>
+        <WaveViewToggle view={view} onChange={onView} />
       </Stack>
 
       <Stack direction="row" spacing={1}>

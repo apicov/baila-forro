@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   type Beat, type BeatsFile, MIN_GAP, add, lowerBound, move, nextRole, nudge, parse, remove, serialize,
-  setRole, shiftRange, shiftRolesFrom, stretchRange,
+  fillFromThrees, repeatRange, setRole, shiftRange, shiftRolesFrom, stretchRange,
 } from './model';
 
 const beats = (...ts: number[]): Beat[] => ts.map((t, i) => ({ t, role: ([1, 2, 3, 0] as const)[i % 4] }));
@@ -84,5 +84,65 @@ describe('edits', () => {
   it('finds the first step at or after a time', () => {
     const b = beats(1, 2, 3);
     expect([lowerBound(b, 0), lowerBound(b, 2), lowerBound(b, 2.1), lowerBound(b, 9)]).toEqual([0, 1, 2, 3]);
+  });
+});
+
+describe('repeatRange', () => {
+  // a cycle at 1, 1.5, 2, 2.5 (gap 0.5, period 2), then wrong steps, then steps far after
+  const song = beats(1, 1.5, 2, 2.5, 3.1, 3.4, 4.2, 4.9, 5.3, 6.6, 20, 20.5);
+  const roles = (bs: Beat[]) => bs.map((b) => b.role);
+
+  it('repeats the pattern every k × its gap, with its counts, over the steps that were there', () => {
+    const r = repeatRange(song, 0, 3, 2);
+    expect(times(r.beats)).toEqual([1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 20, 20.5]);
+    expect(roles(r.beats).slice(0, 12)).toEqual([1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0]);
+    expect(r.b).toBe(11);
+    expect(sorted(r.beats)).toBe(true);
+  });
+
+  it('keeps the steps before and the ones after the copies', () => {
+    const r = repeatRange(song, 0, 3, 1);
+    expect(times(r.beats)).toEqual([1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 4.9, 5.3, 6.6, 20, 20.5]);
+  });
+
+  it('leaves out copies past the end of the song', () => {
+    const r = repeatRange(song, 0, 3, 10, 5.2);
+    expect(Math.max(...r.beats.slice(0, r.b + 1).map((b) => b.t))).toBeLessThanOrEqual(5.2);
+    expect(times(r.beats).slice(r.b - 1)).toEqual([4.5, 5, 5.3, 6.6, 20, 20.5]); // past the end: not touched
+  });
+
+  it('does nothing with fewer than two steps', () => {
+    expect(repeatRange(song, 2, 2, 3).beats).toBe(song);
+  });
+});
+
+describe('fillFromThrees', () => {
+  const roles = (bs: Beat[]) => bs.map((b) => b.role);
+  // detected steps every 0.5 s from 0 to 12, partly wrong
+  const song = beats(...Array.from({ length: 25 }, (_, i) => i * 0.5 + (i % 3 ? 0.07 : 0)));
+
+  it('fills whole cycles between the marks, on the marks', () => {
+    const r = fillFromThrees(song, [2, 4, 8])!; // a cycle of 2 s, then two cycles from 4 to 8
+    const part = r.beats.slice(r.a, r.b + 1);
+    expect(times(part)).toEqual([2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8]);
+    expect(roles(part)).toEqual([3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3]);
+    expect(sorted(r.beats)).toBe(true);
+  });
+
+  it('follows a tempo that drifts: each span evenly divided', () => {
+    const r = fillFromThrees(song, [2, 4, 6.4])!;
+    const part = r.beats.slice(r.a, r.b + 1);
+    expect(times(part).slice(4)).toEqual([4, 4.6, 5.2, 5.8, 6.4]);
+  });
+
+  it('replaces the steps between the marks and keeps the others', () => {
+    const r = fillFromThrees(song, [4, 2])!; // in any order
+    expect(times(r.beats.slice(0, r.a))).toEqual(times(song.filter((b) => b.t < 1.75)));
+    expect(times(r.beats.slice(r.b + 1))).toEqual(times(song.filter((b) => b.t >= 4.25)));
+  });
+
+  it('needs two marks', () => {
+    expect(fillFromThrees(song, [3])).toBeNull();
+    expect(fillFromThrees(song, [3, 3.01])).toBeNull(); // the same mark twice
   });
 });

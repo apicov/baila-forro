@@ -105,3 +105,47 @@ export function stretchRange(beats: Beat[], a: number, b: number, tb: number): B
   const k = span / old;
   return beats.map((x, j) => (j > a && j <= b ? { ...x, t: ta + (x.t - ta) * k } : x));
 }
+
+/** Repeats steps a..b `n` times after themselves, over the steps that were there: a passage that keeps the
+ *  same pattern. The copies come every `period` = k × the pattern's average gap (k steps), so the slot after
+ *  its last step is kept (a 1·2·3·pause cycle repeats as such). Copies past `maxT` are left out. Returns the
+ *  index of the last copy, for the range of the whole repeated part. */
+export function repeatRange(beats: Beat[], a: number, b: number, n: number, maxT = Infinity): { beats: Beat[]; b: number } {
+  const k = b - a + 1;
+  if (k < 2 || n < 1) return { beats, b };
+  const gap = (beats[b].t - beats[a].t) / (k - 1), period = k * gap;
+  const copies: Beat[] = [];
+  for (let c = 1; c <= n; c++) {
+    for (let j = a; j <= b; j++) {
+      const t = beats[j].t + c * period;
+      if (t <= maxT) copies.push({ t, role: beats[j].role });
+    }
+  }
+  const last = copies.length ? copies[copies.length - 1].t : beats[b].t;
+  const end = Math.max(Math.min(beats[a].t + (n + 1) * period - gap / 2, maxT), last + MIN_GAP);
+  const after = beats.slice(b + 1).filter((x) => x.t >= end);
+  return { beats: [...beats.slice(0, b + 1), ...copies, ...after], b: b + copies.length };
+}
+
+/** The steps from threes marked by hand (two or more): the closest two marks are taken as one cycle; between
+ *  each two marks go as many whole cycles as fit (pause · one · two · three), evenly spaced so they land on
+ *  the marks (a tempo that drifts is followed). The steps that were there are replaced. Returns the indices of
+ *  the first and last mark in the result. */
+export function fillFromThrees(beats: Beat[], marks: number[]): { beats: Beat[]; a: number; b: number } | null {
+  const ms = [...marks].sort((x, y) => x - y).filter((m, i, all) => i === 0 || m - all[i - 1] >= MIN_GAP);
+  if (ms.length < 2) return null;
+  let cycle = Infinity;
+  for (let i = 1; i < ms.length; i++) cycle = Math.min(cycle, ms[i] - ms[i - 1]);
+  const filled: Beat[] = [];
+  let firstGap = 0, lastGap = 0;
+  for (let i = 0; i + 1 < ms.length; i++) {
+    const span = ms[i + 1] - ms[i], slots = 4 * Math.max(1, Math.round(span / cycle)), gap = span / slots;
+    if (i === 0) firstGap = gap;
+    lastGap = gap;
+    for (let s = 0; s < slots; s++) filled.push({ t: ms[i] + s * gap, role: ([3, 0, 1, 2] as Role[])[s % 4] });
+  }
+  filled.push({ t: ms[ms.length - 1], role: 3 });
+  const from = ms[0] - firstGap / 2, to = ms[ms.length - 1] + lastGap / 2;
+  const before = beats.filter((x) => x.t < from), after = beats.filter((x) => x.t >= to);
+  return { beats: [...before, ...filled, ...after], a: before.length, b: before.length + filled.length - 1 };
+}

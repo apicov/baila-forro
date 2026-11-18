@@ -10,6 +10,7 @@ import { COLORMAP, rowOf, Spectrogram } from '@/audio/spectrum';
 import { engine } from '@/audio/useEngine';
 import { STEMS, type Stem } from '@/library/db';
 import { ROLE_COLORS, STEM_COLORS } from '@/theme/theme';
+import { nearestWindow } from './zoom';
 
 /** stacked: one shape, each stem a band of it; lanes: a row per stem; spectrum: the spectrogram of the mix. */
 export type WaveView = 'stacked' | 'lanes' | 'spectrum';
@@ -27,6 +28,7 @@ const HEIGHT = BAND + 180 + AXIS;
 const HANDLE_R = 10;
 const HIT_PX = 18;
 const TAP_PX = 6; // a pointer that moves less than this is a tap
+const LONG_PRESS_MS = 500;
 const ROLE_LABEL = { 1: '1', 2: '2', 3: '3', 0: '·' } as const;
 // stacked from the middle out: the rhythm section closest to the centre line
 const STACK_ORDER: Stem[] = ['drums', 'bass', 'guitar', 'piano', 'other', 'vocals'];
@@ -42,6 +44,15 @@ export interface TimelineProps {
   onTap?: (i: number) => void;
   onDragStart?: (i: number) => void;
   onDrag?: (i: number, t: number) => void;
+  /** Held still: on a step (its index) or elsewhere (null); `t` is the time under the finger. */
+  onLongPress?: (i: number | null, t: number) => void;
+  /** A pinch: the zoom level it comes to. */
+  onZoom?: (windowSec: number) => void;
+  /** Times marked as threes (Mark 3s), drawn over the steps. */
+  marks?: number[];
+  /** Given, a tap calls it instead of selecting or jumping: its time, the step under it (in the band, or null),
+   *  and how many seconds a finger's width is. */
+  onTapTime?: (t: number, i: number | null, tolerance: number) => void;
 }
 
 /** The loudest slice of `peaks` in [k0, k1). */
@@ -222,6 +233,20 @@ export function Timeline(props: TimelineProps) {
         }
       }
 
+      // the threes marked (Mark 3s): a ring around the band and a line down, in the three's colour
+      if (p.marks?.length) {
+        const three = ROLE_COLORS[mode][3];
+        g.strokeStyle = three;
+        for (const m of p.marks) {
+          const mx = x(m);
+          if (mx < -HANDLE_R * 2 || mx > w + HANDLE_R * 2) continue;
+          g.lineWidth = 2; g.globalAlpha = 0.8;
+          g.beginPath(); g.moveTo(mx, BAND - 4); g.lineTo(mx, bottom); g.stroke();
+          g.globalAlpha = 1; g.lineWidth = 3;
+          g.beginPath(); g.arc(mx, BAND / 2, HANDLE_R + 4, 0, 2 * Math.PI); g.stroke();
+        }
+      }
+
       // the playhead
       g.fillStyle = th.palette.error.main;
       g.fillRect(w / 2 - 1, 0, 2, h - 12);
@@ -230,8 +255,19 @@ export function Timeline(props: TimelineProps) {
     return () => cancelAnimationFrame(frame);
   }, []);
 
-  // pointer: on a handle (editable) → drag/tap a step; elsewhere → scroll (paused) or tap to jump
-  const gesture = useRef<{ id: number; x0: number; time0: number; beat: number | null; grab: number; moved: boolean } | null>(null);
+  // pointer: on a handle (editable) → drag/tap a step; elsewhere → scroll (paused) or tap to jump; held still → long
+  // press; two fingers → pinch zoom
+  const gesture = useRef<{
+    id: number; x0: number; time0: number; t: number; beat: number | null; grab: number; moved: boolean; done: boolean;
+  } | null>(null);
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ d0: number; window0: number } | null>(null);
+  const press = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelPress = () => { if (press.current) clearTimeout(press.current); press.current = null; };
+  const spread = () => {
+    const [a, b] = [...pointers.current.values()];
+    return Math.hypot(a.x - b.x, a.y - b.y) || 1;
+  };
 
   const timeAt = (clientX: number) => {
     const r = canvas.current!.getBoundingClientRect();
@@ -239,25 +275,50 @@ export function Timeline(props: TimelineProps) {
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
+    canvas.current!.setPointerCapture(e.pointerId);
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size === 2) { // a second finger: a pinch, whatever the first was doing
+      cancelPress();
+      gesture.current = null;
+      pinch.current = { d0: spread(), window0: props.windowSec };
+      return;
+    }
+    if (pointers.current.size > 2) return;
     const r = canvas.current!.getBoundingClientRect();
     const pps = r.width / props.windowSec, t = timeAt(e.clientX);
     let beat: number | null = null;
-    if (props.editable && props.showSteps && e.clientY - r.top < BAND + 10) {
+    if ((props.editable || props.onTapTime) && props.showSteps && e.clientY - r.top < BAND + 10) {
       let best = HIT_PX;
       for (let i = Math.max(0, lowerBound(props.beats, t - HIT_PX / pps) - 1); i < props.beats.length && props.beats[i].t < t + HIT_PX / pps; i++) {
         const d = Math.abs(props.beats[i].t - t) * pps;
         if (d < best) { best = d; beat = i; }
       }
     }
-    canvas.current!.setPointerCapture(e.pointerId);
-    gesture.current = { id: e.pointerId, x0: e.clientX, time0: engine.time, beat, grab: beat === null ? 0 : props.beats[beat].t - t, moved: false };
+    const gs = { id: e.pointerId, x0: e.clientX, time0: engine.time, t, beat, grab: beat === null ? 0 : props.beats[beat].t - t, moved: false, done: false };
+    gesture.current = gs;
+    if (props.onLongPress && !props.onTapTime) {
+      press.current = setTimeout(() => {
+        press.current = null;
+        if (gesture.current !== gs || gs.moved) return;
+        gs.done = true; // the finger's up and moves are this long press's
+        navigator.vibrate?.(15);
+        live.current.props.onLongPress?.(gs.beat, gs.t);
+      }, LONG_PRESS_MS);
+    }
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
+    if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch.current && pointers.current.size === 2) {
+      const w = nearestWindow(pinch.current.window0 * (pinch.current.d0 / spread())); // fingers apart: fewer seconds
+      if (w !== props.windowSec) props.onZoom?.(w);
+      return;
+    }
     const gs = gesture.current;
-    if (!gs || gs.id !== e.pointerId) return;
+    if (!gs || gs.id !== e.pointerId || gs.done) return;
     if (!gs.moved && Math.abs(e.clientX - gs.x0) < TAP_PX) return;
-    if (gs.beat !== null) {
+    cancelPress();
+    if (gs.beat !== null && !props.onTapTime) {
       if (!gs.moved) props.onDragStart?.(gs.beat);
       props.onDrag?.(gs.beat, timeAt(e.clientX) + gs.grab);
     } else if (!engine.playing) {
@@ -268,18 +329,23 @@ export function Timeline(props: TimelineProps) {
   };
 
   const onPointerUp = (e: React.PointerEvent) => {
+    pointers.current.delete(e.pointerId);
+    if (pointers.current.size < 2) pinch.current = null;
+    cancelPress();
     const gs = gesture.current;
     if (!gs || gs.id !== e.pointerId) return;
     gesture.current = null;
-    if (gs.moved) return;
-    if (gs.beat !== null) props.onTap?.(gs.beat);
+    if (gs.moved || gs.done) return;
+    const tolerance = HIT_PX / (canvas.current!.getBoundingClientRect().width / props.windowSec);
+    if (props.onTapTime) props.onTapTime(gs.t, gs.beat, tolerance);
+    else if (gs.beat !== null) props.onTap?.(gs.beat);
     else engine.seek(timeAt(e.clientX));
   };
 
   return (
     <canvas ref={canvas} style={{ width: '100%', height: HEIGHT, display: 'block', touchAction: 'none', cursor: 'pointer' }}
       onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
-      onPointerCancel={() => { gesture.current = null; }} />
+      onPointerCancel={(e) => { pointers.current.delete(e.pointerId); pinch.current = null; cancelPress(); gesture.current = null; }} />
   );
 }
 

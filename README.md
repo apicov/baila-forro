@@ -38,5 +38,19 @@ The next song takes its decode time (a few seconds on the phone) before it start
 ## Beats
 `steps` has four slots per cycle: one, two, three (the louder accent click) and a silent pause.
 `ones`/`twos`/`threes` list the steps of each role; the pause slots are the steps in none of them.
+**Editing**, on the Beats tab:
+- Tap a step to select it, drag it to move it; **double-tap** it for its next count (1 → 2 → 3 → pause).
+- **Long-press** the picture: a step right there. Long-press a step: a range from it (then tap its last step).
+- **Pinch** to zoom (3, 6, 12 or 24 s on screen), on the Mix tab too.
+- **Range**: shift or stretch a run of steps (stretching fixes a passage whose tempo drifts), or **Repeat ×N**:
+  the range's pattern copied N times after it, over the steps there, every k × its average gap (k steps), so a
+  1·2·3·pause cycle repeats as such. The range then covers the whole repeated part: if the copies drift off the
+  music, stretch it (drag its last step onto the music).
+- **Mark 3s**: mark the threes by hand: tap the timeline where one falls (on a step: right on it), or **Tap 3**
+  along with the music; tap a mark to take it back. Two marks a cycle apart give the cycle; **Fill from 3s** then
+  puts whole cycles (pause · 1 · 2 · 3) between each two marks, evenly spaced so they land on the marks (a tempo
+  that drifts is followed), over the steps there.
+- Every change is one Undo step.
+
 Edits save on the phone automatically. **Export beats** writes `<song>_beats.json` with only `steps`,
 `ones`, `twos` and `threes` changed (every other field kept as it was).

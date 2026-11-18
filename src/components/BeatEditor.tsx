@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Alert, Button, ButtonGroup, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, Stack,
   ToggleButton, ToggleButtonGroup, Tooltip, Typography,
@@ -11,19 +11,21 @@ import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import IosShareIcon from '@mui/icons-material/IosShare';
 import RestoreIcon from '@mui/icons-material/Restore';
 import {
-  type Role, add, move, nextRole, nudge, remove, setRole, shiftRange, shiftRolesFrom, stretchRange,
+  type Role, add, fillFromThrees, move, nextRole, nudge, remove, repeatRange, setRole, shiftRange, shiftRolesFrom,
+  stretchRange,
 } from '@/beats/model';
 import type { useBeatEdits } from '@/beats/useBeatEdits';
-import { engine } from '@/audio/useEngine';
+import { clock, engine } from '@/audio/useEngine';
 import type { SongRow } from '@/library/db';
 import { exportBeats } from '@/services/exportBeats';
 import { ROLE_COLORS } from '@/theme/theme';
 import { useTheme } from '@mui/material';
 import { Timeline, type WaveView, WaveViewToggle } from './Timeline';
+import { WINDOWS } from './zoom';
 
-const WINDOWS = [3, 6, 12, 24]; // seconds on screen
 const STEPS_MS = [5, 10, 50];
 const ROLE_NAME: Record<Role, string> = { 1: 'one', 2: 'two', 3: 'three', 0: 'pause' };
+const DOUBLE_TAP_MS = 350;
 
 type Edits = ReturnType<typeof useBeatEdits>;
 
@@ -40,11 +42,18 @@ export function BeatEditor({ song, edits, view, onView }: {
   const [stepMs, setStepMs] = useState(10);
   const [confirmRevert, setConfirmRevert] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [repeatN, setRepeatN] = useState(4);
+  const [markMode, setMarkMode] = useState(false);
+  const [marks, setMarks] = useState<number[]>([]);
+  const lastTap = useRef({ i: -1, at: 0 });
   const step = stepMs / 1000;
   const sel = selected !== null && selected < beats.length ? selected : null;
 
   const onTap = (i: number) => {
     setSelected(i);
+    const now = performance.now(), double = lastTap.current.i === i && now - lastTap.current.at < DOUBLE_TAP_MS;
+    lastTap.current = { i: double ? -1 : i, at: now };
+    if (double) { apply((b) => setRole(b, i, nextRole(b[i].role))); return; } // double tap: the next count
     if (!rangeMode) return;
     // first tap: start of the range; second: its end; a third starts again
     setRange((r) => (!r || r.a !== r.b ? { a: i, b: i } : { a: Math.min(r.a, i), b: Math.max(r.a, i) }));
@@ -58,6 +67,35 @@ export function BeatEditor({ song, edits, view, onView }: {
     } else {
       apply((b) => move(b, i, t), snapshot);
     }
+  };
+
+  // long press: on a step, a range from it; elsewhere, a step right there
+  const onLongPress = (i: number | null, t: number) => {
+    if (i !== null) {
+      setRangeMode(true); setMarkMode(false);
+      setSelected(i);
+      setRange({ a: i, b: i });
+      return;
+    }
+    let index = 0;
+    apply((b) => { const r = add(b, t); index = r.index; return r.beats; });
+    setSelected(index);
+    setRange(null);
+  };
+
+  // Mark 3s: a tap marks a three (on a step: right on it), or takes back the mark under it
+  const onTapTime = (t: number, i: number | null, tolerance: number) => {
+    const near = marks.findIndex((m) => Math.abs(m - t) < tolerance);
+    if (near >= 0) setMarks(marks.filter((_, j) => j !== near));
+    else setMarks([...marks, i !== null ? beats[i].t : t]);
+  };
+  const fill = () => {
+    let done: { a: number; b: number } | null = null;
+    apply((b) => { const r = fillFromThrees(b, marks); done = r && { a: r.a, b: r.b }; return r ? r.beats : b; });
+    setMarks([]);
+    setMarkMode(false);
+    setRange(done);
+    setSelected(null);
   };
 
   const addAtPlayhead = () => {
@@ -74,8 +112,22 @@ export function BeatEditor({ song, edits, view, onView }: {
     setRange(null);
   };
 
-  const toggleRange = () => { setRangeMode((m) => !m); setRange(null); };
+  const toggleRange = () => { setRangeMode((m) => !m); setRange(null); setMarkMode(false); };
+  const toggleMarks = () => { setMarkMode((m) => !m); setRangeMode(false); setRange(null); };
   const fullRange = range && range.a !== range.b ? range : null;
+
+  // repeat ×N: copies every k × the range's average gap (model.repeatRange); then the range is the whole part
+  const repeatEnd = (() => {
+    if (!fullRange) return 0;
+    const k = fullRange.b - fullRange.a + 1, gap = (beats[fullRange.b].t - beats[fullRange.a].t) / (k - 1);
+    return Math.min(engine.duration || Infinity, beats[fullRange.b].t + repeatN * k * gap);
+  })();
+  const doRepeat = () => {
+    if (!fullRange) return;
+    let last = fullRange.b;
+    apply((b) => { const r = repeatRange(b, fullRange.a, fullRange.b, repeatN, engine.duration || Infinity); last = r.b; return r.beats; });
+    setRange({ a: fullRange.a, b: last });
+  };
 
   const doExport = async () => {
     try { await exportBeats(song, edits.latest.current); }
@@ -100,7 +152,14 @@ export function BeatEditor({ song, edits, view, onView }: {
         range={fullRange ?? (range ? { a: range.a, b: range.a } : null)} windowSec={windowSec}
         onTap={onTap}
         onDragStart={(i) => { setSelected(i); onDrag(i, beats[i].t, true); }}
-        onDrag={(i, t) => onDrag(i, t, false)} />
+        onDrag={(i, t) => onDrag(i, t, false)}
+        onLongPress={onLongPress} onZoom={setWindowSec}
+        marks={markMode ? marks : undefined} onTapTime={markMode ? onTapTime : undefined} />
+      <Typography variant="caption" color="text.secondary">
+        {markMode
+          ? 'Tap where a three falls (on a step: right on it), or Tap 3 along with the music; tap a mark to take it back.'
+          : 'Long-press: a step right there, or a range from a step · double-tap a step: next count · pinch: zoom'}
+      </Typography>
 
       {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
 
@@ -152,6 +211,39 @@ export function BeatEditor({ song, edits, view, onView }: {
       {fullRange && (
         <Typography variant="caption" color="text.secondary">
           Drag the last step to stretch the range (the first stays put), any other step to shift it all.
+        </Typography>
+      )}
+      {fullRange && (
+        <Stack direction="row" sx={{ alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Typography variant="body2">Repeat ×</Typography>
+          <ButtonGroup size="small">
+            <Button aria-label="Fewer copies" disabled={repeatN <= 1} onClick={() => setRepeatN(repeatN - 1)}>−</Button>
+            <Button disabled sx={{ '&.Mui-disabled': { color: 'text.primary' }, minWidth: 40 }}>{repeatN}</Button>
+            <Button aria-label="More copies" onClick={() => setRepeatN(repeatN + 1)}>+</Button>
+          </ButtonGroup>
+          <Button size="small" variant="outlined" onClick={doRepeat}>Repeat</Button>
+          <Typography variant="caption" color="text.secondary">up to {clock(repeatEnd)}, over the steps there</Typography>
+        </Stack>
+      )}
+
+      {/* threes marked by hand, the rest filled in */}
+      <Stack direction="row" sx={{ alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+        <ToggleButton value="marks" size="small" selected={markMode} onChange={toggleMarks}>Mark 3s</ToggleButton>
+        {markMode && (
+          <>
+            <Button size="small" variant="contained" disabled={!engine.duration}
+              sx={{ bgcolor: roleColors[3], color: 'background.paper', fontWeight: 700, minWidth: 64 }}
+              onClick={() => setMarks([...marks, engine.time])}>Tap 3</Button>
+            <Button size="small" variant="outlined" disabled={marks.length < 2} onClick={fill}>Fill from 3s</Button>
+            <Button size="small" disabled={!marks.length} onClick={() => setMarks([])}>Clear</Button>
+            <Typography variant="body2" color="text.secondary">{marks.length} {marks.length === 1 ? 'mark' : 'marks'}</Typography>
+          </>
+        )}
+      </Stack>
+      {markMode && (
+        <Typography variant="caption" color="text.secondary">
+          Mark two threes a cycle apart (that's the cycle), then more further on; Fill puts whole cycles between the
+          marks (pause · 1 · 2 · 3), evenly spaced, over the steps there.
         </Typography>
       )}
 

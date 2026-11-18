@@ -25,6 +25,7 @@ function Song({ song }: { song: SongRow }) {
   const e = useEngine();
   const edits = useBeatEdits(song);
   const [tab, setTab] = useState<'mix' | 'beats'>('mix');
+  const [mixWindow, setMixWindow] = useState(6); // seconds on screen; a pinch zooms
   const [view, setView] = useState<WaveView>('stacked'); // shared by both tabs
   const [showSteps, setShowSteps] = useState(true);
   const p = usePlayer();
@@ -66,7 +67,8 @@ function Song({ song }: { song: SongRow }) {
           </Tabs>
           {tab === 'mix' && (
             <Stack spacing={1.5}>
-              <Timeline beats={edits.beats} view={view} showSteps={showSteps && edits.beats.length > 0} editable={false} windowSec={6} />
+              <Timeline beats={edits.beats} view={view} showSteps={showSteps && edits.beats.length > 0} editable={false}
+                windowSec={mixWindow} onZoom={setMixWindow} />
               <Stack direction="row" sx={{ alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                 <WaveViewToggle view={view} onChange={setView} />
                 <FormControlLabel label="Steps" disabled={edits.beats.length === 0}

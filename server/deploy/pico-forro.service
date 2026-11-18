@@ -1,5 +1,5 @@
 [Unit]
-Description=Pico Forró group server (songs' tags + dashboard)
+Description=Pico Forró group server (songs' tags)
 After=network-online.target
 Wants=network-online.target
 

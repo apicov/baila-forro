@@ -11,6 +11,8 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { useEngine } from '@/audio/useEngine';
 import { RHYTHMS, type Rhythm, STEMS, type SongRow, setTags } from '@/library/db';
 import { RHYTHM_LABEL, VERDICT_LABEL } from '@/library/tags';
+import { songKey } from '@/library/importSongs';
+import { useGroup } from '@/library/sync';
 
 export interface ItemAction { label: string; onClick: () => void; disabled?: boolean }
 
@@ -24,6 +26,7 @@ export function SongItem({ song, onPlay, actions, onTagged }: {
   const [tagging, setTagging] = useState(false);
   const tagRhythm = (r: Rhythm | null) => { setTagging(false); void setTags(song.id, { rhythm: r }).then(onTagged); };
   const verdict = song.review?.verdict;
+  const g = useGroup()[songKey(song.id)];
   const current = e.songId === song.id;
   return (
     <Card sx={(t) => ({ display: 'flex', alignItems: 'center',
@@ -51,6 +54,8 @@ export function SongItem({ song, onPlay, actions, onTagged }: {
               {song.beatsOriginal ? ` · ${song.beatsOriginal.bpm ?? '?'} bpm` : ' · no beats file'}
               {song.beatsEdited ? ' · beats edited' : ''}
               {song.files ? ' · in a folder' : ''}
+              {g?.rhythm_votes ? ` · ${g.rhythm_votes} ${g.rhythm_votes === 1 ? 'vote' : 'votes'}` : ''}
+              {g?.reviews ? ` · ${g.reviews} ${g.reviews === 1 ? 'review' : 'reviews'}` : ''}
             </Typography>
           </Box>
         </CardContent>

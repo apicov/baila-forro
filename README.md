@@ -63,8 +63,10 @@ and the rhythm. The search finds the tags: "needs a fix", "looks right", "not ch
 rhythm, or words of a note. For now every song clicks like forró, whatever its rhythm.
 
 **Sharing** (Library ⋮ → Sharing): with your name and your group's code, your tags go to the group's server
-(see `server/README.md`) a moment after each change. No audio is sent. The server's dashboard shows everyone's
-tags per song, which songs need a fix and where people disagree, and exports them all as JSON.
+(see `server/README.md`) a moment after each change, and the group's tags come back, **blind**: on a song you see
+how many voted, and the votes themselves only once you gave yours (the rhythm votes once you tagged its rhythm,
+the reviews and their notes once you reviewed it). Nobody just follows the others, and wanting to see is a
+reason to vote. The lists show each song's number of votes and reviews. No audio is sent.
 
 ## Beats
 `steps` has four slots per cycle: one, two, three (the louder accent click) and a silent pause.

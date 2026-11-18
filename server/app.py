@@ -1,5 +1,6 @@
 """Pico Forró group server: collects the songs' tags (general rhythm; looks right / needs a fix, with reasons
-and a note) from the app of everyone in a small group, and shows them on a dashboard.
+and a note) from the app of everyone in a small group, and gives each person the group's tags back, blind: a
+song's votes only once they gave theirs (so nobody just follows the others). /api/export has them all.
 
 One row per person (a device id made by the app, with the name they typed) per song (its YouTube id, or its
 title). Every /api call needs the group's code (X-Group-Code). No audio and no accounts.
@@ -13,12 +14,10 @@ import os
 import sqlite3
 import time
 from collections import Counter
-from pathlib import Path
 from typing import Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 Rhythm = Literal["forró", "arrasta-pé", "baião", "xaxado"]
@@ -65,7 +64,7 @@ def create_app(code: str | None = None, db_path: str | None = None) -> FastAPI:
     db_path = db_path or os.environ.get("FORRO_DB", "forro.db")
     app = FastAPI(title="Pico Forró group", docs_url=None, redoc_url=None)
     app.add_middleware(CORSMiddleware, allow_origins=ORIGINS, allow_methods=["GET", "POST"],
-                       allow_headers=["Content-Type", "X-Group-Code"])
+                       allow_headers=["Content-Type", "X-Group-Code", "X-Device"])
 
     with sqlite3.connect(db_path) as con:
         con.execute("PRAGMA journal_mode=WAL")
@@ -113,32 +112,35 @@ def create_app(code: str | None = None, db_path: str | None = None) -> FastAPI:
             "FROM tags t JOIN songs s ON s.key = t.song_key JOIN people p ON p.device = t.device "
             "ORDER BY s.title, t.at").fetchall()
 
-    @app.get("/api/summary", dependencies=[Depends(member)])
-    def summary(con: sqlite3.Connection = Depends(db)):
+    @app.get("/api/songs", dependencies=[Depends(member)])
+    def group(x_device: str = Header(""), con: sqlite3.Connection = Depends(db)):
+        """The group's tags per song, blind: how many voted, and the votes themselves only on the songs where
+        this person (X-Device) gave theirs: rhythm votes once they tagged its rhythm, reviews once they reviewed it."""
         songs: dict[str, dict] = {}
         for r in rows(con):
-            s = songs.setdefault(r["song_key"], {"key": r["song_key"], "title": r["title"], "votes": []})
-            s["votes"].append({"name": r["name"], "rhythm": r["rhythm"], "verdict": r["verdict"],
-                               "reasons": json.loads(r["reasons"]), "note": r["note"], "at": r["at"]})
-        out = []
-        for s in songs.values():
-            votes = s["votes"]
-            rhythms = Counter(v["rhythm"] for v in votes if v["rhythm"])
-            top = rhythms.most_common(2)
-            right = sum(v["verdict"] == "right" for v in votes)
-            fix = sum(v["verdict"] == "fix" for v in votes)
-            out.append({
-                **s,
-                "rhythms": dict(rhythms),
-                "rhythm": top[0][0] if top and (len(top) == 1 or top[0][1] > top[1][1]) else None,  # no tie
-                "right": right,
-                "fix": fix,
-                "reasons": dict(Counter(x for v in votes if v["verdict"] == "fix" for x in v["reasons"])),
-                "disagree": len(rhythms) > 1 or (right > 0 and fix > 0),
-                "last": max(v["at"] for v in votes),
-            })
-        people = con.execute("SELECT COUNT(*) FROM people").fetchone()[0]
-        return {"songs": out, "people": people}
+            s = songs.setdefault(r["song_key"], {"tags": [], "mine": None})
+            s["tags"].append(r)
+            if r["device"] == x_device:
+                s["mine"] = r
+        out = {}
+        for key, s in songs.items():
+            tags, mine = s["tags"], s["mine"]
+            rhythms = Counter(t["rhythm"] for t in tags if t["rhythm"])
+            reviewed = [t for t in tags if t["verdict"]]
+            g: dict = {"rhythm_votes": sum(rhythms.values()), "reviews": len(reviewed)}
+            if mine is not None and mine["rhythm"]:
+                g["rhythms"] = dict(rhythms)
+            if mine is not None and mine["verdict"]:
+                fixes = [t for t in reviewed if t["verdict"] == "fix"]
+                g["review"] = {
+                    "right": len(reviewed) - len(fixes),
+                    "fix": len(fixes),
+                    "reasons": dict(Counter(x for t in fixes for x in json.loads(t["reasons"]))),
+                    "notes": [{"name": t["name"], "note": t["note"], "mine": t["device"] == x_device}
+                              for t in fixes if t["note"]],
+                }
+            out[key] = g
+        return {"songs": out}
 
     @app.get("/api/export", dependencies=[Depends(member)])
     def export(con: sqlite3.Connection = Depends(db)):
@@ -149,11 +151,9 @@ def create_app(code: str | None = None, db_path: str | None = None) -> FastAPI:
             s["tags"].append({"device": r["device"], "name": r["name"], "rhythm": r["rhythm"], "review": review, "at": r["at"]})
         return {"version": 1, "exported": int(time.time() * 1000), "songs": list(songs.values())}
 
-    page = (Path(__file__).parent / "dashboard.html").read_text(encoding="utf-8")
-
-    @app.get("/", response_class=HTMLResponse)
-    def dashboard():
-        return page
+    @app.get("/")
+    def about():
+        return {"name": "Pico Forró group server", "api": ["/api/tags", "/api/songs", "/api/export", "/api/health"]}
 
     return app
 

@@ -4,7 +4,8 @@ import { db, setTags, type SongRow } from './db';
 import { songKey } from './importSongs';
 import { matches } from './search';
 import { searchText } from './tags';
-import { saveSharing, syncNow } from './sync';
+import { renderHook } from '@testing-library/react';
+import { saveSharing, syncNow, useGroup } from './sync';
 
 const song = (id: string, extra: Partial<SongRow> = {}): SongRow => ({
   id, title: id.replace(/ \[.*$/, ''), stems: [], beatsOriginal: null, beatsEdited: null, updatedAt: 0, ...extra,
@@ -48,7 +49,8 @@ describe('sync', () => {
     await db.songs.bulkPut([song('Lilith [L182VmVf9ao]'), song('Untagged')]);
     await setTags('Lilith [L182VmVf9ao]', { rhythm: 'xaxado' });
     saveSharing({ server: 'https://srv.test/', name: 'Ana', code: 'abc', device: 'dev-1' });
-    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }));
+    const groupView = { songs: { 'yt:L182VmVf9ao': { rhythm_votes: 2, reviews: 0, rhythms: { 'xaxado': 1, 'forró': 1 } } } };
+    const fetchMock = vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/api/songs') ? groupView : { ok: true }), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
 
     expect(await syncNow()).toBe(1);
@@ -59,8 +61,15 @@ describe('sync', () => {
     expect(body).toMatchObject({ device: 'dev-1', name: 'Ana' });
     expect(body.tags).toEqual([{ key: 'yt:L182VmVf9ao', title: 'Lilith', rhythm: 'xaxado', review: null, at: expect.any(Number) }]);
 
+    // then the group's view, asked as this device (the server shows a song's votes only to those who gave theirs)
+    const [groupUrl, groupInit] = fetchMock.mock.calls[1] as unknown as [string, RequestInit];
+    expect(groupUrl).toBe('https://srv.test/api/songs');
+    expect(groupInit.headers).toMatchObject({ 'X-Group-Code': 'abc', 'X-Device': 'dev-1' });
+    expect(renderHook(() => useGroup()).result.current['yt:L182VmVf9ao'].rhythms).toEqual({ 'xaxado': 1, 'forró': 1 });
+    expect(JSON.parse(localStorage.getItem('pico-forro.group')!).songs['yt:L182VmVf9ao'].rhythm_votes).toBe(2); // kept for offline
+
     expect(await syncNow()).toBe(0); // nothing new: only the name goes (checks the code)
-    expect(JSON.parse((fetchMock.mock.calls[1] as unknown as [string, RequestInit])[1].body as string).tags).toEqual([]);
+    expect(JSON.parse((fetchMock.mock.calls[2] as unknown as [string, RequestInit])[1].body as string).tags).toEqual([]);
   });
 
   it('keeps the tags to send when the code is wrong or the server is away', async () => {

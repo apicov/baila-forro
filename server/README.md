@@ -1,17 +1,21 @@
 # Pico Forró group server
 
-Collects the songs' tags from the app of everyone in a small group and shows them on a dashboard:
+Collects the songs' tags from the app of everyone in a small group, and gives them back to each person in the app:
 - each song's general rhythm (forró, arrasta-pé, baião, xaxado);
 - whether what the app shows looks right or needs a fix, with the reasons (steps, rhythm, audio) and a note.
+
+The group's tags come back **blind**. On each song a person sees how many voted, and the votes themselves only once
+they gave theirs: the rhythm votes once they tagged its rhythm, the reviews and notes once they reviewed it. The server
+enforces this, not just the app.
 
 Songs are known by their YouTube id (from the file name), or by their title if there's none. No audio is ever
 sent. There are no accounts: one group code, typed once in the app (Library ⋮ → Sharing) with a name.
 
 - `POST /api/tags`: the app sends a person's changed tags. One row per person per song; the latest wins.
-- `GET /api/summary`: per song, the rhythm votes (with the consensus, or none on a tie), the ✓ / ⚠ counts,
-  the reasons and the notes.
-- `GET /api/export`: every tag as JSON, the dataset.
-- `GET /`: the dashboard. It asks for the group code once.
+- `GET /api/songs` (with `X-Device`): the group's view for that person. Per song: `rhythm_votes`, `reviews`,
+  and `rhythms` / `review` (✓ / ⚠ counts, reasons, notes) where they voted.
+- `GET /api/export`: every tag, with names, as JSON: the dataset, for you.
+  `curl -H 'X-Group-Code: …' https://forro.apicov.xyz/api/export > tags.json`
 
 Every `/api` call except `/api/health` needs the `X-Group-Code` header.
 

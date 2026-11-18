@@ -45,6 +45,7 @@ async function savePlaylist(tree: string, files: Entry[]): Promise<Opened> {
       const old = await db.songs.get(p.id);
       const stems = new Set([...(old?.stems ?? []), ...(Object.keys(uris) as Stem[])]);
       const row: SongRow = {
+        ...old, // its tags
         id: p.id,
         title: p.title,
         stems: STEMS.filter((s) => stems.has(s)),

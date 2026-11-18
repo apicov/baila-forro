@@ -4,6 +4,7 @@ import { Capacitor } from '@capacitor/core';
 import { App as NativeApp } from '@capacitor/app';
 import './theme/fonts';
 import App from './App';
+import { startSync } from './library/sync';
 
 if (!Capacitor.isNativePlatform()) {
   // ask the browser not to evict the imported songs
@@ -15,6 +16,8 @@ if (!Capacitor.isNativePlatform()) {
     else void NativeApp.exitApp();
   });
 }
+
+startSync(); // the songs' tags to the group's server, when sharing is set up
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

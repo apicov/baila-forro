@@ -28,6 +28,7 @@ yt-dlp names files) is dropped from the title shown. `_beats.json` needs four li
   needs the Android SDK and JDK 21).
 - `python3 scripts/make_icons.py`: redraw the icons and splash.
 - `scripts/make_flac.sh <folder>`: the stems as FLAC, for faster opening (see Songs; needs ffmpeg).
+- `server/`: the group server for shared tags (its own README).
 
 ## Songs
 Add → **Open folder as playlist**: pick a song folder, or a folder of song folders (one level down, not
@@ -51,6 +52,19 @@ Tap a song to open it and play it; the list it was tapped in (as shown, search a
 The song playing is marked in the lists, and the bar at the bottom plays/pauses it, skips to the next one,
 or opens it. On the song page: ⏮ ⏭, **Repeat this song** and **Auto-play the next song** (both remembered).
 The next song takes its decode time (a few seconds on a phone) before it starts.
+
+## Tags and sharing
+On a song's page, one tap each:
+- its general **rhythm**: Forró · Arrasta-pé · Baião · Xaxado;
+- **Looks right** or **Needs a fix**. With Needs a fix you can add what's wrong (Steps · Rhythm · Audio) and a note.
+
+Tap a chosen tag again to clear it. Rhythm… in a song's ⋮ menu tags it without opening it. The lists show ✓ or ⚠
+and the rhythm. The search finds the tags: "needs a fix", "looks right", "not checked", "no rhythm", a
+rhythm, or words of a note. For now every song clicks like forró, whatever its rhythm.
+
+**Sharing** (Library ⋮ → Sharing): with your name and your group's code, your tags go to the group's server
+(see `server/README.md`) a moment after each change. No audio is sent. The server's dashboard shows everyone's
+tags per song, which songs need a fix and where people disagree, and exports them all as JSON.
 
 ## Beats
 `steps` has four slots per cycle: one, two, three (the louder accent click) and a silent pause.

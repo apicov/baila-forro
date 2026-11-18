@@ -1,0 +1,15 @@
+[Unit]
+Description=Pico Forró group server (songs' tags + dashboard)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=tsp
+WorkingDirectory=/home/tsp/code/pico-forro-server
+EnvironmentFile=/etc/pico-forro/server.env
+ExecStart=/home/tsp/code/pico-forro-server/.venv/bin/uvicorn app:app --host 127.0.0.1 --port 8060 --workers 1 --proxy-headers
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

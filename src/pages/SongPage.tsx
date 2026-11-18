@@ -5,6 +5,7 @@ import { AppShell } from '@/components/AppShell';
 import { Mixer } from '@/components/Mixer';
 import { Transport } from '@/components/Transport';
 import { BeatEditor } from '@/components/BeatEditor';
+import { SongTags } from '@/components/SongTags';
 import { Timeline, type WaveView, WaveViewToggle } from '@/components/Timeline';
 import { useEngine } from '@/audio/useEngine';
 import { usePlayer } from '@/audio/player';
@@ -48,6 +49,7 @@ function Song({ song }: { song: SongRow }) {
   return (
     <AppShell title={song.title} back={p.queue.includes(song.id) ? p.from.path : '/'} footer={<Transport />}>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      <SongTags song={song} />
       {loading && !error && (
         <Box sx={{ mt: 6, mx: 'auto', maxWidth: 360, textAlign: 'center' }}>
           <Typography variant="h6" sx={{ mb: 1.5, fontVariantNumeric: 'tabular-nums' }}>Loading {percent}%</Typography>

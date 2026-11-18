@@ -1,22 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert, Button, Card, CardActionArea, CardContent, Dialog, DialogActions, DialogContent, DialogTitle, InputAdornment,
-  LinearProgress, ListItemIcon, Menu, MenuItem, Stack, Tab, Tabs, TextField, Typography,
+  IconButton, LinearProgress, ListItemIcon, Menu, MenuItem, Stack, Tab, Tabs, TextField, Typography,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import LibraryMusicIcon from '@mui/icons-material/LibraryMusic';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import QueueMusicIcon from '@mui/icons-material/QueueMusic';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import GroupsIcon from '@mui/icons-material/Groups';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell } from '@/components/AppShell';
 import { NowPlayingBar } from '@/components/NowPlayingBar';
 import { SongItem } from '@/components/SongItem';
+import { SharingDialog } from '@/components/SharingDialog';
 import { AddToPlaylistDialog, NameDialog } from '@/components/PlaylistDialogs';
 import { db, deleteSong, type PlaylistRow, type SongRow } from '@/library/db';
 import { importSongs } from '@/library/importSongs';
 import { canPickFolder, importFolder, type Opened, pickFolder } from '@/library/folder';
 import { matches } from '@/library/search';
+import { searchText } from '@/library/tags';
 import { engine, useEngine } from '@/audio/useEngine';
 import { player } from '@/audio/player';
 
@@ -36,6 +40,8 @@ export function LibraryPage() {
   const [adding, setAdding] = useState<SongRow | null>(null);
   const [naming, setNaming] = useState(false);
   const [menu, setMenu] = useState<HTMLElement | null>(null);
+  const [more, setMore] = useState<HTMLElement | null>(null);
+  const [sharing, setSharing] = useState(false);
   const filesInput = useRef<HTMLInputElement>(null);
   const folderInput = useRef<HTMLInputElement>(null);
 
@@ -45,7 +51,7 @@ export function LibraryPage() {
   }, []);
   useEffect(refresh, [refresh]);
 
-  const shownSongs = (songs ?? []).filter((s) => matches(s.title, query));
+  const shownSongs = (songs ?? []).filter((s) => matches(searchText(s), query));
   const shownPlaylists = playlists.filter((p) => matches(p.name, query));
 
   const work = async (job: () => Promise<Message | null>) => {
@@ -100,8 +106,17 @@ export function LibraryPage() {
 
   return (
     <AppShell title="Pico Forró" footer={e.songId ? <NowPlayingBar /> : undefined} actions={
-      <Button startIcon={<AddIcon />} onClick={(ev) => setMenu(ev.currentTarget)} disabled={busy} aria-label="Add">Add</Button>
+      <>
+        <Button startIcon={<AddIcon />} onClick={(ev) => setMenu(ev.currentTarget)} disabled={busy} aria-label="Add">Add</Button>
+        <IconButton aria-label="More" onClick={(ev) => setMore(ev.currentTarget)}><MoreVertIcon /></IconButton>
+      </>
     }>
+      <Menu anchorEl={more} open={!!more} onClose={() => setMore(null)}>
+        <MenuItem onClick={() => { setMore(null); setSharing(true); }}>
+          <ListItemIcon><GroupsIcon fontSize="small" /></ListItemIcon>Sharing…
+        </MenuItem>
+      </Menu>
+      <SharingDialog open={sharing} onClose={() => setSharing(false)} />
       <Menu anchorEl={menu} open={!!menu} onClose={() => setMenu(null)}>
         <MenuItem onClick={() => { setMenu(null); filesInput.current?.click(); }}>
           <ListItemIcon><LibraryMusicIcon fontSize="small" /></ListItemIcon>Import files
@@ -146,7 +161,7 @@ export function LibraryPage() {
 
       <Stack spacing={1.5}>
         {tab === 'songs' && shownSongs.map((s) => (
-          <SongItem key={s.id} song={s} onPlay={() => play(s)} actions={[
+          <SongItem key={s.id} song={s} onPlay={() => play(s)} onTagged={refresh} actions={[
             { label: 'Add to playlist…', onClick: () => setAdding(s) },
             { label: 'Delete', onClick: () => setDeleting(s) },
           ]} />

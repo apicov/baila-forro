@@ -4,3 +4,7 @@ android/app/build
 android/build
 android/.gradle
 android/key.properties
+server/.venv
+server/*.db*
+__pycache__
+.pytest_cache

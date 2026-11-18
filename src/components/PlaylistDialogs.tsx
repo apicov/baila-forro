@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import { db, type PlaylistRow, type SongRow } from '@/library/db';
 import { matches } from '@/library/search';
+import { searchText } from '@/library/tags';
 
 /** A name for a new playlist, or a new name for one. */
 export function NameDialog({ open, title, initial = '', onClose, onSave }: {
@@ -70,7 +71,7 @@ export function AddSongsDialog({ open, playlist, onClose }: { open: boolean; pla
     setPicked([]); setQuery('');
     void db.songs.orderBy('title').toArray().then((all) => setSongs(all.filter((s) => !playlist.songIds.includes(s.id))));
   }, [open, playlist]);
-  const shown = songs.filter((s) => matches(s.title, query));
+  const shown = songs.filter((s) => matches(searchText(s), query));
   const toggle = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   return (
     <Dialog open={open} onClose={() => onClose([])} fullWidth maxWidth="sm">

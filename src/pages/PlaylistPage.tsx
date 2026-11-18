@@ -84,7 +84,7 @@ export function PlaylistPage() {
 
       <Stack spacing={1.5}>
         {songs.map((s, i) => (
-          <SongItem key={s.id} song={s} onPlay={() => play(s)} actions={[
+          <SongItem key={s.id} song={s} onPlay={() => play(s)} onTagged={() => void refresh()} actions={[
             { label: 'Move up', onClick: () => move(i, -1), disabled: i === 0 },
             { label: 'Move down', onClick: () => move(i, 1), disabled: i === songs.length - 1 },
             { label: 'Remove from playlist', onClick: () => void setOrder(songs.filter((x) => x.id !== s.id).map((x) => x.id)) },

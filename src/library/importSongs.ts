@@ -4,6 +4,7 @@
  *  several songs can come in one go, and a song can come in several goes (they are merged). */
 import { db, STEMS, type Stem, type SongRow } from './db';
 import type { BeatsFile } from '@/beats/model';
+import { fold } from './search';
 
 export interface PickedSong<T extends { name: string } = File> {
   id: string;
@@ -21,6 +22,13 @@ export function songTitle(base: string): string {
     .replace(/(\s*\[[\w-]{11}\]|-[\w-]{11})$/, '')
     .replace(/\s*\(Forró Stream\)/i, '')
     .trim();
+}
+
+/** The song on the group's server: its YouTube id when the name ends in one (friends with the same video share
+ *  it), else its title. */
+export function songKey(base: string): string {
+  const yt = /(?:\[([\w-]{11})\]|-([\w-]{11}))$/.exec(base.normalize('NFC'));
+  return yt ? `yt:${yt[1] ?? yt[2]}` : `title:${fold(songTitle(base))}`;
 }
 
 /** Groups the files by song. The full mix and `_clicks.mp3` are left out: the stems add up to the mix, and the
@@ -56,6 +64,7 @@ export async function importSongs(files: File[]): Promise<PickedSong[]> {
       const old = await db.songs.get(p.id);
       const stems = [...new Set([...(old?.stems ?? []), ...(Object.keys(p.stems) as Stem[])])];
       const row: SongRow = {
+        ...old, // its tags
         id: p.id,
         title: p.title,
         stems: STEMS.filter((s) => stems.includes(s)),

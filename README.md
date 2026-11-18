@@ -1,14 +1,33 @@
 # Pico Forró
 
-Multitrack player for the separated forró songs in `forro_music/`: each stem on/off with its own volume,
-footwork clicks made live from `<song>_beats.json`, and a beat editor to fix the steps and export the file.
+Multitrack player for learning forró: plays a song separated into stems, each stem on/off with its own
+volume, with footwork clicks made live from the song's steps (`<song>_beats.json`), and a beat editor to fix
+the steps and export the file. A music player too: playlists, search, auto-play of the next song.
+
+## Song folders
+One folder per song, its files named after the song, as a stem-separation tool (e.g. Demucs, six stems) and
+a beat tracker write them:
+
+```
+My Song/
+  My Song_vocals.mp3   My Song_guitar.mp3   My Song_piano.mp3
+  My Song_bass.mp3     My Song_drums.mp3    My Song_other.mp3
+  My Song_beats.json
+  flac/                (optional, see Faster opening)
+```
+
+Any of the six stems can be missing. Other files (the full mix, a `_clicks.mp3`…) are left out: the stems add
+up to the mix and the clicks are made from the beats file. A song id ending such as ` [AbC123xYz_0]` (as
+yt-dlp names files) is dropped from the title shown. `_beats.json` needs four lists of times in seconds:
+`steps` (every step) and `ones`, `twos`, `threes` (see Beats); any other field is kept as it is.
 
 ## Run
 - `npm install` (once), `npm run dev`: the app in the browser.
 - `npm test`, `npm run lint`, `npm run typecheck`.
-- `./rebuild.sh`: build the Android APK and install it on the phone over USB (`--no-install` to only build).
+- `./rebuild.sh`: build the Android APK and install it on a phone over USB (`--no-install` to only build;
+  needs the Android SDK and JDK 21).
 - `python3 scripts/make_icons.py`: redraw the icons and splash.
-- `scripts/make_flac.sh <folder>`: the stems as FLAC, for faster opening (see Songs).
+- `scripts/make_flac.sh <folder>`: the stems as FLAC, for faster opening (see Songs; needs ffmpeg).
 
 ## Songs
 Add → **Open folder as playlist**: pick a song folder, or a folder of song folders (one level down, not
@@ -17,10 +36,8 @@ it and fetches a song's stems when it is opened. If the folder is moved or renam
 in the playlist's menu). Opening the same folder again updates its playlist. In the browser a folder can't be
 read again later, so there its songs are imported.
 
-Add → **Import files** copies a song into the app: select every file of one song folder. The app keeps
-the six stems (`_vocals _guitar _piano _bass _drums _other.mp3`) and `_beats.json`; it skips the full mix and
-`_clicks.mp3`, because the stems add up to the mix and the clicks are made from the beats file. Files of a
-song can come in several imports; they are merged, and beat edits are kept.
+Add → **Import files** copies a song into the app: select every file of one song folder (the stems and
+`_beats.json`). Files of a song can come in several imports; they are merged, and beat edits are kept.
 
 **Faster opening**: `scripts/make_flac.sh <folder>` (a song folder, or a folder of song folders; needs
 ffmpeg) writes each song's stems as the app plays them, mono 32 kHz FLAC, into a `flac/` folder inside the
@@ -33,7 +50,7 @@ skipped.
 Tap a song to open it and play it; the list it was tapped in (as shown, search applied) is what comes next.
 The song playing is marked in the lists, and the bar at the bottom plays/pauses it, skips to the next one,
 or opens it. On the song page: ⏮ ⏭, **Repeat this song** and **Auto-play the next song** (both remembered).
-The next song takes its decode time (a few seconds on the phone) before it starts.
+The next song takes its decode time (a few seconds on a phone) before it starts.
 
 ## Beats
 `steps` has four slots per cycle: one, two, three (the louder accent click) and a silent pause.
@@ -52,5 +69,5 @@ The next song takes its decode time (a few seconds on the phone) before it start
   that drifts is followed), over the steps there.
 - Every change is one Undo step.
 
-Edits save on the phone automatically. **Export beats** writes `<song>_beats.json` with only `steps`,
+Edits are saved in the app automatically. **Export beats** writes `<song>_beats.json` with only `steps`,
 `ones`, `twos` and `threes` changed (every other field kept as it was).

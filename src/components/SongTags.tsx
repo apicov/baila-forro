@@ -17,9 +17,10 @@ function GroupLine({ children }: { children: React.ReactNode }) {
 
 /** A song's tags, one tap each: its general rhythm, and whether what the app shows looks right (or what needs a
  *  fix). Tapping the chosen one again clears it. */
-export function SongTags({ song }: { song: SongRow }) {
+export function SongTags({ song, onChange }: { song: SongRow; onChange?: (tags: { rhythm: Rhythm | null; review: Review | null }) => void }) {
   const [rhythm, setRhythm] = useState<Rhythm | null>(song.rhythm ?? null);
   const [review, setReview] = useState<Review | null>(song.review ?? null);
+  useEffect(() => { onChange?.({ rhythm, review }); }, [rhythm, review, onChange]);
   const noteTimer = useRef<{ timer: ReturnType<typeof setTimeout>; review: Review } | null>(null);
   const shared = isSetUp(loadSharing());
   const g = useGroup()[songKey(song.id)];
@@ -68,7 +69,7 @@ export function SongTags({ song }: { song: SongRow }) {
   };
 
   return (
-    <Stack spacing={1} sx={{ mb: 2 }}>
+    <Stack spacing={1}>
       <Stack direction="row" sx={{ gap: 0.75, flexWrap: 'wrap' }} role="group" aria-label="Rhythm">
         {RHYTHMS.map((r) => (
           <Chip key={r} label={RHYTHM_LABEL[r]} size="small" color={rhythm === r ? 'primary' : 'default'}

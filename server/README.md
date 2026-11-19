@@ -9,7 +9,9 @@ they gave theirs: the rhythm votes once they tagged its rhythm, the reviews and 
 enforces this, not just the app.
 
 Songs are known by their YouTube id (from the file name), or by their title if there's none. No audio is ever
-sent. There are no accounts: one group code, typed once in the app (Library ⋮ → Sharing) with a name.
+sent. There are no accounts: one group code, typed with a name on the app's login screen the first time it opens.
+The app only opens once the server takes the code, and a code changed on the server sends everyone back to that
+screen.
 
 - `POST /api/tags`: the app sends a person's changed tags. One row per person per song; the latest wins.
 - `GET /api/songs` (with `X-Device`): the group's view for that person. Per song: `rhythm_votes`, `reviews`,

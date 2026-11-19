@@ -5,7 +5,8 @@ import { useSyncExternalStore } from 'react';
 import { db, tagsChanged } from './db';
 import { songKey } from './importSongs';
 
-export interface Sharing { server: string; name: string; code: string; device: string }
+/** The person's account in the group: `member` once the server took the code (the app opens only then). */
+export interface Sharing { server: string; name: string; code: string; device: string; member?: boolean }
 export interface SyncStatus { last: number | null; error: string | null; busy: boolean }
 /** The group on one song (by its songKey). `rhythms` once you tagged its rhythm, `review` once you reviewed it. */
 export interface GroupSong {
@@ -31,8 +32,40 @@ export function loadSharing(): Sharing {
   return s;
 }
 
+let current: Sharing | null = null;
+const accountListeners = new Set<() => void>();
+
 export function saveSharing(s: Sharing): void {
   try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* kept for this run */ }
+  current = s;
+  accountListeners.forEach((f) => f());
+}
+
+/** The account, live: the app shows the login screen until `member`. */
+export const useSharing = () => useSyncExternalStore(
+  (f) => { accountListeners.add(f); return () => accountListeners.delete(f); },
+  () => (current ??= loadSharing()),
+);
+
+/** Why the login screen is back (the group's code changed), if it is. */
+export let loginReason: string | null = null;
+
+/** Checks the name and code with the server; the app opens once it takes them. Rejects with a message. */
+export async function login(form: { name: string; code: string; server: string }): Promise<void> {
+  const s = { ...loadSharing(), name: form.name.trim(), code: form.code.trim(), server: form.server.trim() || DEFAULT_SERVER, member: false };
+  saveSharing(s);
+  await send(true);
+  loginReason = null;
+  saveSharing({ ...loadSharing(), member: true });
+  await syncNow().catch(() => undefined); // the tags made before, if any, and the group's view
+}
+
+/** Back to the login screen; the name and server stay filled in. */
+export function logout(): void {
+  group = {};
+  try { localStorage.removeItem(GROUP_KEY); } catch { /* none */ }
+  groupListeners.forEach((f) => f());
+  saveSharing({ ...loadSharing(), code: '', member: false });
 }
 
 export const isSetUp = (s: Sharing) => !!(s.server.trim() && s.name.trim() && s.code.trim());
@@ -63,9 +96,9 @@ export function syncNow(): Promise<number> {
   return running;
 }
 
-async function send(): Promise<number> {
+async function send(loggingIn = false): Promise<number> {
   const s = loadSharing();
-  if (!isSetUp(s)) return 0;
+  if (!isSetUp(s) || (!s.member && !loggingIn)) return 0;
   setStatus({ busy: true });
   try {
     const changed = (await db.songs.toArray()).filter((x) => (x.tagsAt ?? 0) > (x.syncedAt ?? 0));
@@ -82,7 +115,13 @@ async function send(): Promise<number> {
     } catch {
       throw new Error("Can't reach the server (no connection, or a wrong address).");
     }
-    if (res.status === 401) throw new Error('Wrong group code.');
+    if (res.status === 401) {
+      if (!loggingIn) { // the group's code changed: back to the login screen
+        loginReason = "The group's code has changed: ask for the new one.";
+        saveSharing({ ...s, member: false });
+      }
+      throw new Error('Wrong group code.');
+    }
     if (!res.ok) throw new Error(`The server answered ${res.status}.`);
     for (const x of changed) await db.songs.update(x.id, { syncedAt: x.tagsAt });
     await fetchGroup(s);

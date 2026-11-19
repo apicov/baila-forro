@@ -5,7 +5,7 @@ import { songKey } from './importSongs';
 import { matches } from './search';
 import { searchText } from './tags';
 import { renderHook } from '@testing-library/react';
-import { saveSharing, syncNow, useGroup } from './sync';
+import { loadSharing, login, logout, saveSharing, syncNow, useGroup } from './sync';
 
 const song = (id: string, extra: Partial<SongRow> = {}): SongRow => ({
   id, title: id.replace(/ \[.*$/, ''), stems: [], beatsOriginal: null, beatsEdited: null, updatedAt: 0, ...extra,
@@ -48,7 +48,7 @@ describe('sync', () => {
   it('sends only the songs whose tags changed, once, then marks them shared', async () => {
     await db.songs.bulkPut([song('Lilith [L182VmVf9ao]'), song('Untagged')]);
     await setTags('Lilith [L182VmVf9ao]', { rhythm: 'xaxado' });
-    saveSharing({ server: 'https://srv.test/', name: 'Ana', code: 'abc', device: 'dev-1' });
+    saveSharing({ server: 'https://srv.test/', name: 'Ana', code: 'abc', device: 'dev-1', member: true });
     const groupView = { songs: { 'yt:L182VmVf9ao': { rhythm_votes: 2, reviews: 0, rhythms: { 'xaxado': 1, 'forró': 1 } } } };
     const fetchMock = vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/api/songs') ? groupView : { ok: true }), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
@@ -75,12 +75,25 @@ describe('sync', () => {
   it('keeps the tags to send when the code is wrong or the server is away', async () => {
     await db.songs.put(song('S'));
     await setTags('S', { review: { verdict: 'right', reasons: [], note: '' } });
-    saveSharing({ server: 'https://srv.test', name: 'Ana', code: 'bad', device: 'd' });
+    saveSharing({ server: 'https://srv.test', name: 'Ana', code: 'bad', device: 'd', member: true });
     vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 401 })));
     await expect(syncNow()).rejects.toThrow('Wrong group code.');
+    expect(loadSharing().member).toBe(false); // the group's code changed: back to the login screen
+    saveSharing({ ...loadSharing(), member: true });
     vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('offline'); }));
     await expect(syncNow()).rejects.toThrow("Can't reach the server");
     expect((await db.songs.get('S'))!.syncedAt).toBeUndefined();
+  });
+
+  it('logs in only when the server takes the code; logging out keeps the name', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 401 })));
+    await expect(login({ name: ' Ana ', code: 'nope', server: '' })).rejects.toThrow('Wrong group code.');
+    expect(loadSharing().member).toBe(false);
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(url.endsWith('/api/songs') ? '{"songs":{}}' : '{}', { status: 200 })));
+    await login({ name: ' Ana ', code: 'abc', server: '' });
+    expect(loadSharing()).toMatchObject({ name: 'Ana', code: 'abc', server: 'https://forro.apicov.xyz', member: true });
+    logout();
+    expect(loadSharing()).toMatchObject({ name: 'Ana', code: '', member: false });
   });
 
   it('does nothing until the name and code are filled in', async () => {

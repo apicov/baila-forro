@@ -12,13 +12,13 @@ export function Mixer({ hasBeats }: { hasBeats: boolean }) {
   const e = useEngine();
   const colors = STEM_COLORS[useTheme().palette.mode === 'dark' ? 'dark' : 'paper'];
   return (
-    <Stack spacing={0.5}>
+    <Stack spacing={0.25}>
       {TRACKS.map((t) => {
         const present = t === 'clicks' ? hasBeats : e.has(t);
         const { on, volume } = e.tracks[t];
         return (
           <Stack key={t} direction="row" spacing={1.5} sx={{ alignItems: 'center', opacity: present ? 1 : 0.4 }}>
-            <Switch checked={on && present} disabled={!present} onChange={(_, v) => e.setTrack(t, { on: v })}
+            <Switch size="small" checked={on && present} disabled={!present} onChange={(_, v) => e.setTrack(t, { on: v })}
               slotProps={{ input: { 'aria-label': `${LABEL[t]} on` } }} />
             {/* the stem's colour on the timeline */}
             <Box sx={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0,

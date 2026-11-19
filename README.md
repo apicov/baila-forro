@@ -54,7 +54,8 @@ or opens it. On the song page: ⏮ ⏭, **Repeat this song** and **Auto-play the
 The next song takes its decode time (a few seconds on a phone) before it starts.
 
 ## Tags and sharing
-On a song's page, one tap each:
+On a song's page, the button left of ☰ (a ballot, or ✓ / ⚠ once you reviewed; a dot when the group has votes
+you haven't seen) or ☰ → **Rhythm & review…**, one tap each:
 - its general **rhythm**: Forró · Arrasta-pé · Baião · Xaxado;
 - **Looks right** or **Needs a fix**. With Needs a fix you can add what's wrong (Steps · Rhythm · Audio) and a note.
 
@@ -62,8 +63,12 @@ Tap a chosen tag again to clear it. Rhythm… in a song's ⋮ menu tags it witho
 and the rhythm. The search finds the tags: "needs a fix", "looks right", "not checked", "no rhythm", a
 rhythm, or words of a note. For now every song clicks like forró, whatever its rhythm.
 
-**Sharing** (Library ⋮ → Sharing): with your name and your group's code, your tags go to the group's server
-(see `server/README.md`) a moment after each change, and the group's tags come back, **blind**: on a song you see
+**The group**: the app is for a group of friends. The first time it opens it asks for your name and the group's
+code, and it only opens once the group's server (see `server/README.md`) takes the code. This needs the internet the
+first time; after that the app works offline. If the code changes on the server, everyone is back at this screen
+on their next sync. Library ⋮ → **Account**: change your name, or log out.
+
+Your tags go to the server a moment after each change, and the group's tags come back, **blind**: on a song you see
 how many voted, and the votes themselves only once you gave yours (the rhythm votes once you tagged its rhythm,
 the reviews and their notes once you reviewed it). Nobody just follows the others, and wanting to see is a
 reason to vote. The lists show each song's number of votes and reviews. No audio is sent.
@@ -71,10 +76,10 @@ reason to vote. The lists show each song's number of votes and reviews. No audio
 ## Beats
 `steps` has four slots per cycle: one, two, three (the louder accent click) and a silent pause.
 `ones`/`twos`/`threes` list the steps of each role; the pause slots are the steps in none of them.
-**Editing**, on the Beats tab:
+**Editing**: ☰ → **Edit steps** on a song's page (back returns to the mix):
 - Tap a step to select it, drag it to move it; **double-tap** it for its next count (1 → 2 → 3 → pause).
 - **Long-press** the picture: a step right there. Long-press a step: a range from it (then tap its last step).
-- **Pinch** to zoom (3, 6, 12 or 24 s on screen), on the Mix tab too.
+- **Pinch** to zoom (3, 6, 12 or 24 s on screen), in the mix too.
 - **Range**: shift or stretch a run of steps (stretching fixes a passage whose tempo drifts), or **Repeat ×N**:
   the range's pattern copied N times after it, over the steps there, every k × its average gap (k steps), so a
   1·2·3·pause cycle repeats as such. The range then covers the whole repeated part: if the copies drift off the

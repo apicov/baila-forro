@@ -9,12 +9,12 @@ import LibraryMusicIcon from '@mui/icons-material/LibraryMusic';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import QueueMusicIcon from '@mui/icons-material/QueueMusic';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import GroupsIcon from '@mui/icons-material/Groups';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell } from '@/components/AppShell';
 import { NowPlayingBar } from '@/components/NowPlayingBar';
 import { SongItem } from '@/components/SongItem';
-import { SharingDialog } from '@/components/SharingDialog';
+import { AccountDialog } from '@/components/AccountDialog';
 import { AddToPlaylistDialog, NameDialog } from '@/components/PlaylistDialogs';
 import { db, deleteSong, type PlaylistRow, type SongRow } from '@/library/db';
 import { importSongs } from '@/library/importSongs';
@@ -41,7 +41,7 @@ export function LibraryPage() {
   const [naming, setNaming] = useState(false);
   const [menu, setMenu] = useState<HTMLElement | null>(null);
   const [more, setMore] = useState<HTMLElement | null>(null);
-  const [sharing, setSharing] = useState(false);
+  const [account, setAccount] = useState(false);
   const filesInput = useRef<HTMLInputElement>(null);
   const folderInput = useRef<HTMLInputElement>(null);
 
@@ -112,11 +112,11 @@ export function LibraryPage() {
       </>
     }>
       <Menu anchorEl={more} open={!!more} onClose={() => setMore(null)}>
-        <MenuItem onClick={() => { setMore(null); setSharing(true); }}>
-          <ListItemIcon><GroupsIcon fontSize="small" /></ListItemIcon>Sharing…
+        <MenuItem onClick={() => { setMore(null); setAccount(true); }}>
+          <ListItemIcon><AccountCircleIcon fontSize="small" /></ListItemIcon>Account…
         </MenuItem>
       </Menu>
-      <SharingDialog open={sharing} onClose={() => setSharing(false)} />
+      <AccountDialog open={account} onClose={() => setAccount(false)} />
       <Menu anchorEl={menu} open={!!menu} onClose={() => setMenu(null)}>
         <MenuItem onClick={() => { setMenu(null); filesInput.current?.click(); }}>
           <ListItemIcon><LibraryMusicIcon fontSize="small" /></ListItemIcon>Import files

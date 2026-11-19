@@ -24,6 +24,11 @@ import { RHYTHM_LABEL, VERDICT_LABEL } from '@/library/tags';
 import { useGroup } from '@/library/sync';
 import { useBeatEdits } from '@/beats/useBeatEdits';
 
+// the mix's plot: as tall as the screen leaves, between these (a taller one only stretches the waveforms; the
+// page scrolls before it gets smaller)
+const MIN_PLOT = 150;
+const MAX_PLOT = { xs: 260, md: 320 };
+
 export function SongPage() {
   const id = decodeURIComponent(useParams().id ?? '');
   const [song, setSong] = useState<SongRow | null | undefined>(undefined);
@@ -72,7 +77,7 @@ function Song({ song }: { song: SongRow }) {
   const verdict = tags.review?.verdict;
   const tagsLabel = `Rhythm and review: ${tags.rhythm ? RHYTHM_LABEL[tags.rhythm] : 'no rhythm'}, ${verdict ? VERDICT_LABEL[verdict] : 'not reviewed'}`;
   return (
-    <AppShell title={song.title} footer={<Transport />}
+    <AppShell title={song.title} footer={<Transport />} fill={!editing}
       {...(editing ? { onBack: leaveEditor } : { back: p.queue.includes(song.id) ? p.from.path : '/' })}
       actions={
         <>
@@ -118,9 +123,14 @@ function Song({ song }: { song: SongRow }) {
       {!loading && (
         <>
           {!editing && (
-            <Stack spacing={1.5}>
-              <Timeline beats={edits.beats} view={view} showSteps={showSteps && edits.beats.length > 0} editable={false}
-                windowSec={mixWindow} onZoom={setMixWindow} />
+            <Stack spacing={1.5} sx={{ flex: 1, minHeight: 0 }}>
+              {/* the plot takes the height the screen leaves, from MIN_PLOT to MAX_PLOT */}
+              <Box sx={{ flex: 1, minHeight: MIN_PLOT, maxHeight: MAX_PLOT, position: 'relative' }}>
+                <Box sx={{ position: 'absolute', inset: 0 }}>
+                  <Timeline beats={edits.beats} view={view} showSteps={showSteps && edits.beats.length > 0} editable={false}
+                    windowSec={mixWindow} onZoom={setMixWindow} fill />
+                </Box>
+              </Box>
               <Stack direction="row" sx={{ alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                 <WaveViewToggle view={view} onChange={setView} />
                 <FormControlLabel label="Steps" disabled={edits.beats.length === 0}

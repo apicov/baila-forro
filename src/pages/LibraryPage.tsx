@@ -8,6 +8,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import LibraryMusicIcon from '@mui/icons-material/LibraryMusic';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import QueueMusicIcon from '@mui/icons-material/QueueMusic';
+import ShuffleIcon from '@mui/icons-material/Shuffle';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -159,6 +160,13 @@ export function LibraryPage() {
         </Typography>
       )}
 
+      {tab === 'songs' && shownSongs.length > 1 && (
+        <Button startIcon={<ShuffleIcon />} aria-label="Shuffle play" sx={{ mb: 1 }}
+          onClick={() => void player.shufflePlay(shownSongs.map((x) => x.id), { label: 'Library', path: '/' })
+            .then((id) => id && navigate(`/song/${encodeURIComponent(id)}`))}>
+          Shuffle {query.trim() ? `these ${shownSongs.length}` : `all ${shownSongs.length}`}
+        </Button>
+      )}
       <Stack spacing={1.5}>
         {tab === 'songs' && shownSongs.map((s) => (
           <SongItem key={s.id} song={s} onPlay={() => play(s)} onTagged={refresh} actions={[

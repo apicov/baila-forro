@@ -23,7 +23,8 @@ const FREQ_LABELS: [number, string][] = [[100, '100'], [1000, '1k'], [5000, '5k'
 const BAND = 34; // the handles' band at the top
 const AXIS = 16; // the seconds along the bottom
 // the same height in every view and with the steps on or off (they only share it out differently), so the page
-// doesn't jump on a switch: 180 px of picture under the steps, a lane of 30 px for each of the six stems
+// doesn't jump on a switch: 180 px of picture under the steps, a lane of 30 px for each of the six stems. With
+// `fill`, the height of the box it's in instead (the room the screen leaves: also the same in every view)
 const HEIGHT = BAND + 180 + AXIS;
 const HANDLE_R = 10;
 const HIT_PX = 18;
@@ -39,6 +40,7 @@ export interface TimelineProps {
   showSteps: boolean;
   editable: boolean;
   windowSec: number;
+  fill?: boolean;
   selected?: number | null;
   range?: { a: number; b: number } | null;
   onTap?: (i: number) => void;
@@ -343,7 +345,7 @@ export function Timeline(props: TimelineProps) {
   };
 
   return (
-    <canvas ref={canvas} style={{ width: '100%', height: HEIGHT, display: 'block', touchAction: 'none', cursor: 'pointer' }}
+    <canvas ref={canvas} style={{ width: '100%', height: props.fill ? '100%' : HEIGHT, display: 'block', touchAction: 'none', cursor: 'pointer' }}
       onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
       onPointerCancel={(e) => { pointers.current.delete(e.pointerId); pinch.current = null; cancelPress(); gesture.current = null; }} />
   );

@@ -1,4 +1,4 @@
-import { afterEnd } from './player';
+import { afterEnd, playOrder } from './player';
 import { folderName, matches } from '@/library/search';
 import { groupFiles } from '@/library/importSongs';
 
@@ -48,5 +48,29 @@ describe('groupFiles', () => {
     expect(a[0].stems.bass?.uri).toBe('f');
     expect(a[0].stems.drums?.uri).toBe('d');
     expect(b[0].stems.bass?.uri).toBe('f');
+  });
+});
+
+describe('playOrder', () => {
+  const q = ['a', 'b', 'c', 'd', 'e'];
+  it('is the list as shown with shuffle off', () => {
+    expect(playOrder(q, 'c', false)).toBe(q);
+  });
+  it('shuffled: the first song first, every song once', () => {
+    for (let k = 0; k < 20; k++) {
+      const o = playOrder(q, 'c', true);
+      expect(o[0]).toBe('c');
+      expect([...o].sort()).toEqual(q);
+    }
+  });
+  it('really shuffles (a fixed random: a fixed order, not the list)', () => {
+    let x = 0.3;
+    const random = () => (x = (x * 9301 + 49297) % 233280 / 233280);
+    const o = playOrder(q, 'a', true, random);
+    expect(o).not.toEqual(q);
+    expect(playOrder(q, 'a', true, (() => { let y = 0.3; return () => (y = (y * 9301 + 49297) % 233280 / 233280); })())).toEqual(o);
+  });
+  it('without a first song in the list, just the shuffled list', () => {
+    expect([...playOrder(q, 'x', true)].sort()).toEqual(q);
   });
 });

@@ -8,6 +8,7 @@ import SkipNextIcon from '@mui/icons-material/SkipNext';
 import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
 import RepeatOneIcon from '@mui/icons-material/RepeatOne';
 import PlaylistPlayIcon from '@mui/icons-material/PlaylistPlay';
+import ShuffleIcon from '@mui/icons-material/Shuffle';
 import { clock, useEngine, usePlaybackTime } from '@/audio/useEngine';
 import { usePlayer } from '@/audio/player';
 
@@ -27,7 +28,11 @@ export function Transport() {
           onChangeCommitted={(_, v) => { e.seek(v as number); setDragging(null); }} />
         <Typography variant="caption" sx={{ minWidth: 34, fontVariantNumeric: 'tabular-nums' }}>{clock(e.duration)}</Typography>
       </Stack>
-      <Stack direction="row" sx={{ justifyContent: 'center', alignItems: 'center', gap: { xs: 0, sm: 1 } }}>
+      {/* eight buttons: a bit tighter on narrow screens so they fit in one row */}
+      <Stack direction="row" sx={{ justifyContent: 'center', alignItems: 'center', gap: { xs: 0, sm: 1 },
+        '& .MuiIconButton-root:not(.MuiIconButton-sizeLarge)': { p: { xs: 0.75, sm: 1 } } }}>
+        <IconButton aria-label="Shuffle" aria-pressed={p.shuffle} color={p.shuffle ? 'primary' : 'default'}
+          sx={{ opacity: p.shuffle ? 1 : 0.45 }} onClick={() => p.setShuffle(!p.shuffle)}><ShuffleIcon /></IconButton>
         <IconButton aria-label="Repeat this song" aria-pressed={p.repeatOne} color={p.repeatOne ? 'primary' : 'default'}
           sx={{ opacity: p.repeatOne ? 1 : 0.45 }} onClick={() => p.setRepeatOne(!p.repeatOne)}><RepeatOneIcon /></IconButton>
         <IconButton aria-label="Previous song" onClick={() => p.prev()}><SkipPreviousIcon /></IconButton>

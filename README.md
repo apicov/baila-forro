@@ -50,7 +50,13 @@ skipped.
 ## Playing
 Tap a song to open it and play it; the list it was tapped in (as shown, search applied) is what comes next.
 The song playing is marked in the lists, and the bar at the bottom plays/pauses it, skips to the next one,
-or opens it. On the song page: ⏮ ⏭, **Repeat this song** and **Auto-play the next song** (both remembered).
+or opens it. On the song page: ⏮ ⏭, **Shuffle**, **Repeat this song** and **Auto-play the next song** (all
+remembered). Shuffle plays the list in a random order, each song once, from the song playing; ⏮ goes back
+along it. **Shuffle** buttons in the library (all songs, or the ones a search shows) and in a playlist start a
+shuffled round at a random song.
+
+The song page fits the screen: the plot takes the height the mixer and the controls leave (up to about 260 px,
+so the waveforms aren't stretched), and the mixer has as many columns as fit (two on most phones).
 The next song takes its decode time (a few seconds on a phone) before it starts.
 
 ## Tags and sharing

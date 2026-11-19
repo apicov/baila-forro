@@ -6,6 +6,7 @@ import {
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import ShuffleIcon from '@mui/icons-material/Shuffle';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AppShell } from '@/components/AppShell';
 import { NowPlayingBar } from '@/components/NowPlayingBar';
@@ -71,8 +72,10 @@ export function PlaylistPage() {
         <MenuItem onClick={() => { setMenu(null); setDeleting(true); }}>Delete playlist</MenuItem>
       </Menu>
 
-      <Stack direction="row" spacing={1} sx={{ mb: 2, alignItems: 'center' }}>
+      <Stack direction="row" sx={{ mb: 2, alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
         <Button variant="contained" startIcon={<PlayArrowIcon />} disabled={!songs.length} onClick={() => play(songs[0])}>Play all</Button>
+        <Button startIcon={<ShuffleIcon />} disabled={!songs.length} aria-label="Shuffle play"
+          onClick={() => void player.shufflePlay(songs.map((x) => x.id), { label: list.name, path }).then((id) => id && navigate(`/song/${encodeURIComponent(id)}`))}>Shuffle</Button>
         <Button startIcon={<PlaylistAddIcon />} onClick={() => setAdding(true)}>Add songs</Button>
         <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>
           {songs.length} {songs.length === 1 ? 'song' : 'songs'}{list.tree ? ' · folder' : ''}
